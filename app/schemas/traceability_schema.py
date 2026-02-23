@@ -166,7 +166,11 @@ class ConfirmModelSelectionResponse(BaseModel):
 # ── Lock/Unlock Fields ────────────────────────────────────────────
 
 class LockFieldsRequest(BaseModel):
-    """Request to lock fields (make them read-only)."""
+    """Request to lock fields (make them read-only).
+    supplier_part_no is required to look up LotLockType from
+    TM_Supplier_Lot_Structure (determines if lock is allowed).
+    """
+    supplier_part_no: str
     supplier_code: str
     plant_code: str
     station_no: str
@@ -176,13 +180,18 @@ class LockFieldsResponse(BaseModel):
     success: bool
     message: str
     locked: bool
+    lot_lock_type: Optional[str] = None   # "Enable", "Disable", or "STANDARD"
     data: Optional[dict] = None
 
 
 class UnlockFieldsRequest(BaseModel):
-    """Request to unlock fields (requires supervisor login)."""
+    """Request to unlock fields (requires supervisor login).
+    supplier_part_no is needed to update the lock state for the
+    correct part context.
+    """
     user_id: str
     password: str
+    supplier_part_no: str
     supplier_code: str
     plant_code: str
     station_no: str

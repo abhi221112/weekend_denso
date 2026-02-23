@@ -360,38 +360,91 @@ def get_shift(supplier_code: str) -> dict | None:
 # 6.  Lock/Unlock Field State Management
 # ─────────────────────────────────────────────────────────────────
 
-# In-memory storage for field lock states (in production, use Redis/Database)
+# In-memory storage for field lock states (keyed by supplier_part_no)
 _field_lock_states = {}
 
 
-def lock_fields(supplier_code: str, plant_code: str, station_no: str) -> bool:
+def get_lot_lock_type(supplier_part_no: str) -> str | None:
+    """
+    Query TM_Supplier_Lot_Structure to get the LotLockType for a
+    given SupplierPart.  Returns 'Enable', 'Disable', or 'STANDARD'.
+    The SP GET_PRINT_PARAMETER joins on both SupplierCode and
+    SupplierPart; here we only need the SupplierPart to look it up.
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT TOP 1 ISNULL(LotLockType, 'Enable') AS LotLockType
+            FROM TM_Supplier_Lot_Structure
+            WHERE SupplierPart = ?
+            """,
+            supplier_part_no,
+        )
+        row = cursor.fetchone()
+        if row:
+            return row[0]
+        return None
+    finally:
+        conn.close()
+
+
+def lock_fields(
+    supplier_part_no: str,
+    supplier_code: str,
+    plant_code: str,
+    station_no: str,
+) -> tuple[bool, str | None]:
     """
     Lock fields to make them read-only.
-    Returns True if successfully locked.
+    First checks LotLockType from DB:
+      - 'Disable' → lock is not allowed, return (False, 'Disable')
+      - 'Enable' / 'STANDARD' → lock is allowed
+    Returns (success: bool, lot_lock_type: str).
     """
-    lock_key = f"{supplier_code}:{plant_code}:{station_no}"
+    lot_lock_type = get_lot_lock_type(supplier_part_no)
+
+    if lot_lock_type is None:
+        return False, None
+
+    if lot_lock_type == "Disable":
+        return False, lot_lock_type
+
+    lock_key = f"{supplier_part_no}:{supplier_code}:{plant_code}:{station_no}"
     _field_lock_states[lock_key] = {
         "locked": True,
         "locked_at": str(__import__("datetime").datetime.now()),
+        "lot_lock_type": lot_lock_type,
     }
-    return True
+    return True, lot_lock_type
 
 
-def unlock_fields(supplier_code: str, plant_code: str, station_no: str) -> bool:
+def unlock_fields(
+    supplier_part_no: str,
+    supplier_code: str,
+    plant_code: str,
+    station_no: str,
+) -> bool:
     """
     Unlock fields to make them editable.
     Returns True if successfully unlocked.
     """
-    lock_key = f"{supplier_code}:{plant_code}:{station_no}"
+    lock_key = f"{supplier_part_no}:{supplier_code}:{plant_code}:{station_no}"
     if lock_key in _field_lock_states:
         del _field_lock_states[lock_key]
     return True
 
 
-def is_fields_locked(supplier_code: str, plant_code: str, station_no: str) -> bool:
+def is_fields_locked(
+    supplier_part_no: str,
+    supplier_code: str,
+    plant_code: str,
+    station_no: str,
+) -> bool:
     """
     Check if fields are currently locked.
     Returns True if locked, False if unlocked.
     """
-    lock_key = f"{supplier_code}:{plant_code}:{station_no}"
+    lock_key = f"{supplier_part_no}:{supplier_code}:{plant_code}:{station_no}"
     return lock_key in _field_lock_states and _field_lock_states[lock_key].get("locked", False)

@@ -174,10 +174,16 @@ def lock_fields_endpoint(body: LockFieldsRequest):
     """
     **Step 6 – Lock Fields**
 
-    When user clicks the **Lock** button, all form fields become 
+    When user clicks the **Lock** button, all form fields become
     read-only (greyed out). The UI shows a "visibility lock" icon.
+
+    Requires **supplier_part_no** to look up `LotLockType` from
+    `TM_Supplier_Lot_Structure`:
+    - `Enable` / `STANDARD` → lock is allowed
+    - `Disable` → lock is **not** allowed for this part
     """
     result = traceability_service.lock_fields(
+        body.supplier_part_no,
         body.supplier_code,
         body.plant_code,
         body.station_no,
@@ -201,6 +207,7 @@ def unlock_fields_endpoint(body: UnlockFieldsRequest):
     result = traceability_service.unlock_fields(
         body.user_id,
         body.password,
+        body.supplier_part_no,
         body.supplier_code,
         body.plant_code,
         body.station_no,

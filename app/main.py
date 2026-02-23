@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.traceability_route import router as traceability_router
 from app.routes.register import router as register_router
+from app.routes.print_route import router as print_router
+from app.routes.rework_route import router as rework_router
 
 app = FastAPI(
     title="Traceability Tag Print API",
@@ -31,8 +33,14 @@ app.add_middleware(
 # Register routes
 app.include_router(traceability_router)
 app.include_router(register_router)
+app.include_router(print_router)
+app.include_router(rework_router)
 
 
 @app.get("/", tags=["Health"])
 def health_check():
     return {"status": "running", "app": "Traceability Tag Print API"}
+
+
+
+

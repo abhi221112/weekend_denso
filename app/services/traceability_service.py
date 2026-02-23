@@ -185,33 +185,49 @@ def confirm_model_selection(
             data=None,
         )
 
+    # Helper: safely convert DB Decimal/numeric to the expected Python type
+    def _str(val):
+        return str(val) if val is not None else None
+
+    def _int(val):
+        try:
+            return int(val) if val is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    def _float(val):
+        try:
+            return float(val) if val is not None else None
+        except (ValueError, TypeError):
+            return None
+
     model = ModelData(
         supplier_part=row.get("SupplierPart"),
         supplier_part_name=row.get("SupplierPartName"),
         part_no=row.get("PartNo"),
         part_name=row.get("PartName"),
-        lot_size=row.get("LotSize"),
-        supplier_part_lot_size=row.get("SupplierPartLotSize"),
-        supplier_part_weight=row.get("SupplierPartWeight"),
-        bin_qty=row.get("BinQty"),
+        lot_size=_int(row.get("LotSize")),
+        supplier_part_lot_size=_str(row.get("SupplierPartLotSize")),
+        supplier_part_weight=_float(row.get("SupplierPartWeight")),
+        bin_qty=_int(row.get("BinQty")),
         shift=row.get("Shift"),
         supplier_part_image=row.get("SupplierPartImage"),
-        print_cycle_time=row.get("PrintCycleTime"),
-        total_no_of_digits=row.get("TotalNoOfDigits"),
-        no_of_steps=row.get("NoOfSteps"),
-        step_1_digits=row.get("Step_1_Digits"),
-        step_2_digits=row.get("Step_2_Digits"),
-        step_3_digits=row.get("Step_3_Digits"),
-        step_4_digits=row.get("Step_4_Digits"),
-        step_5_digits=row.get("Step_5_Digits"),
-        step_6_digits=row.get("Step_6_Digits"),
+        print_cycle_time=_int(row.get("PrintCycleTime")),
+        total_no_of_digits=_int(row.get("TotalNoOfDigits")),
+        no_of_steps=_int(row.get("NoOfSteps")),
+        step_1_digits=_int(row.get("Step_1_Digits")),
+        step_2_digits=_int(row.get("Step_2_Digits")),
+        step_3_digits=_int(row.get("Step_3_Digits")),
+        step_4_digits=_int(row.get("Step_4_Digits")),
+        step_5_digits=_int(row.get("Step_5_Digits")),
+        step_6_digits=_int(row.get("Step_6_Digits")),
         supplier_code=row.get("SupplierCode"),
         result=row.get("RESULT"),
-        tolerance_weight=row.get("ToleranceWeight"),
+        tolerance_weight=_float(row.get("ToleranceWeight")),
         weighing_scale=row.get("WeighingScale"),
         image_name=row.get("ImageName"),
-        bin_weight=row.get("BinWeight"),
-        bin_tolerance_weight=row.get("BinToleranceWeight"),
+        bin_weight=_float(row.get("BinWeight")),
+        bin_tolerance_weight=_float(row.get("BinToleranceWeight")),
         step_1_scan_type=row.get("Step_1_ScanType", "Enter"),
         step_2_scan_type=row.get("Step_2_ScanType", "Enter"),
         step_3_scan_type=row.get("Step_3_ScanType", "Enter"),
@@ -219,8 +235,8 @@ def confirm_model_selection(
         step_5_scan_type=row.get("Step_5_ScanType", "Enter"),
         step_6_scan_type=row.get("Step_6_ScanType", "Enter"),
         delimiter_type=row.get("DelimiterType", "Enter"),
-        character_length_from=row.get("CharacterLengthFrom", 0),
-        character_length_to=row.get("CharacterLengthTo", 0),
+        character_length_from=_int(row.get("CharacterLengthFrom")) or 0,
+        character_length_to=_int(row.get("CharacterLengthTo")) or 0,
         lot_lock_type=row.get("LotLockType", "Enable"),
     )
 
@@ -235,6 +251,7 @@ def confirm_model_selection(
 # 6.  Lock Fields (make them read-only)
 # ─────────────────────────────────────────────────────────────────
 def lock_fields(
+    supplier_part_no: str,
     supplier_code: str,
     plant_code: str,
     station_no: str,
@@ -242,14 +259,40 @@ def lock_fields(
     """
     Lock the form fields to make them read-only.
     Called when user clicks the Lock button.
+    Checks LotLockType from TM_Supplier_Lot_Structure:
+      - 'Disable' → locking not allowed for this part
+      - 'Enable' / 'STANDARD' → lock is allowed
     """
-    success = traceability_repo.lock_fields(supplier_code, plant_code, station_no)
+    success, lot_lock_type = traceability_repo.lock_fields(
+        supplier_part_no, supplier_code, plant_code, station_no
+    )
+
+    if lot_lock_type is None:
+        return LockFieldsResponse(
+            success=False,
+            message=f"Supplier part '{supplier_part_no}' not found in Lot Structure",
+            locked=False,
+            lot_lock_type=None,
+            data=None,
+        )
+
+    if lot_lock_type == "Disable":
+        return LockFieldsResponse(
+            success=False,
+            message=f"Locking is disabled for supplier part '{supplier_part_no}' (LotLockType=Disable)",
+            locked=False,
+            lot_lock_type=lot_lock_type,
+            data={"supplier_part_no": supplier_part_no, "supplier_code": supplier_code,
+                  "plant_code": plant_code, "station_no": station_no},
+        )
 
     return LockFieldsResponse(
         success=success,
         message="Fields locked successfully" if success else "Failed to lock fields",
         locked=success,
-        data={"supplier_code": supplier_code, "plant_code": plant_code, "station_no": station_no},
+        lot_lock_type=lot_lock_type,
+        data={"supplier_part_no": supplier_part_no, "supplier_code": supplier_code,
+              "plant_code": plant_code, "station_no": station_no},
     )
 
 
@@ -259,6 +302,7 @@ def lock_fields(
 def unlock_fields(
     user_id: str,
     password: str,
+    supplier_part_no: str,
     supplier_code: str,
     plant_code: str,
     station_no: str,
@@ -281,7 +325,9 @@ def unlock_fields(
         )
 
     # Supervisor authenticated, now unlock fields
-    unlock_success = traceability_repo.unlock_fields(supplier_code, plant_code, station_no)
+    unlock_success = traceability_repo.unlock_fields(
+        supplier_part_no, supplier_code, plant_code, station_no
+    )
 
     supervisor_data = SupervisorData(
         supplier_code=supervisor_row.get("SupplierCode"),

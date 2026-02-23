@@ -80,23 +80,7 @@ async def update_user(
     user_data: SupplierEndUserUpdate,
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Update an existing supplier end user
-    This endpoint replaces the btnSave_Click with DbType='UPDATE'
     
-    Equivalent to ASP.NET code:
-    ```csharp
-    btnSave.Text == "Update"  // true
-    _plObj.DbType = "UPDATE"
-    ```
-    
-    Path Parameters:
-    - user_id: User ID to update
-    
-    Request Headers:
-    - X-User-ID: Current user ID (from session)
-    - X-Supplier-Code: Supplier code (from session)
-    """
     if not current_user.get("user_id"):
         raise HTTPException(status_code=403, detail="Unauthorized action attempted")
     
@@ -121,23 +105,7 @@ async def delete_user(
     user_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Delete a supplier end user
-    This endpoint replaces the gvMaster_RowCommand with CommandName='DeleteRecords'
-    
-    Equivalent to ASP.NET code:
-    ```csharp
-    _plObj.DbType = "DELETE"
-    _DeleteRecords(user_id)
-    ```
-    
-    Path Parameters:
-    - user_id: User ID to delete
-    
-    Request Headers:
-    - X-User-ID: Current user ID (from session)
-    - X-Supplier-Code: Supplier code (from session)
-    """
+   
     if not current_user.get("user_id"):
         raise HTTPException(status_code=403, detail="Unauthorized action attempted")
     
@@ -214,24 +182,7 @@ async def search_users(
     search_value: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """
-    Search users by column
-    This endpoint replaces the SearchText() method
-    
-    Equivalent to ASP.NET code:
-    ```csharp
-    DataView dv = new DataView(CommonHelper.dtBindData)
-    dv.RowFilter = string.Format("{0} LIKE '%{1}%'", selectedColumn, txtSearch.Text)
-    ```
-    
-    Query Parameters:
-    - column_name: Column to search in
-    - search_value: Value to search for (supports LIKE pattern)
-    
-    Request Headers:
-    - X-User-ID: Current user ID (from session)
-    - X-Supplier-Code: Supplier code (from session)
-    """
+ 
     # Fetch all users first
     result = service.get_all_users(
         current_user["supplier_code"],
