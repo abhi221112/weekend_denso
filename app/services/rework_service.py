@@ -8,7 +8,7 @@ The SP returns:
   Msg:     'QR Tag Printed Successfully!'
 """
 
-from app.repositories import rework_repo
+from app.data_access import rework_dal
 from app.schemas.rework_schema import (
     ReworkValidateTagResponse,
     ReworkValidateTagData,
@@ -72,7 +72,7 @@ def validate_tag(
     supplier_code: str | None = None,
 ) -> ReworkValidateTagResponse:
     """Validate a barcode for rework and return tag details."""
-    row = rework_repo.validate_tag(
+    row = rework_dal.validate_tag(
         barcode=barcode,
         supplier_code=supplier_code,
     )
@@ -149,7 +149,7 @@ def get_print_details(
     supplier_code: str | None = None,
 ) -> ReworkGetPrintDetailsResponse:
     """Return last 3 rework print details for a part + lot."""
-    rows = rework_repo.get_print_details(
+    rows = rework_dal.get_print_details(
         supplier_part_no=supplier_part_no,
         lot_no_1=lot_no_1,
         supplier_code=supplier_code,
@@ -213,13 +213,17 @@ def get_last_print_details(
     supplier_part_no: str,
 ) -> ReworkGetLastPrintResponse:
     """Return last serial no & tag counts."""
-    row = rework_repo.get_last_print_details(supplier_part_no)
+    row = rework_dal.get_last_print_details(supplier_part_no)
 
     if row is None:
         return ReworkGetLastPrintResponse(
-            success=False,
-            message="No print records found for this supplier part",
-            data=None,
+            success=True,
+            message="No prior rework prints – starting fresh",
+            data=ReworkLastPrintData(
+                running_sn_no=None,
+                count_no_of_tags=0,
+                total_no_of_tags=0,
+            ),
         )
 
     def _int(val):
@@ -266,7 +270,7 @@ def rework_print(
     gross_weight: str | None,
 ) -> ReworkPrintResponse:
     """Execute rework KANBAN_PRINT SP and return parsed response."""
-    row = rework_repo.rework_print(
+    row = rework_dal.rework_print(
         barcode=barcode,
         company_code=company_code,
         plant_code=plant_code,
@@ -298,7 +302,7 @@ def get_reprint_parameter(
     supplier_part_no: str,
 ) -> ReworkReprintParamResponse:
     """Return lot structure parameters for reprint."""
-    row = rework_repo.get_reprint_parameter(supplier_part_no)
+    row = rework_dal.get_reprint_parameter(supplier_part_no)
 
     if row is None:
         return ReworkReprintParamResponse(

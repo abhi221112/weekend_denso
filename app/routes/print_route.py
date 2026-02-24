@@ -7,7 +7,7 @@ Endpoints:
   GET  /api/printing/image/{supplier_part} → GET_PRINT_IMAGE (binary image)
 """
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response, Depends
 
 from app.schemas.print_schema import (
     KanbanPrintRequest,
@@ -20,6 +20,7 @@ from app.schemas.print_schema import (
     ChangeLotNoResponse,
 )
 from app.services import print_service
+from app.utils.jwt_handler import get_current_user
 
 router = APIRouter(
     prefix="/api/printing",
@@ -29,7 +30,7 @@ router = APIRouter(
 
 # ── 1. Print  ──────────────────────────────────────────────────────
 @router.post("/print", response_model=KanbanPrintResponse)
-def print_tag(body: KanbanPrintRequest):
+def print_tag(body: KanbanPrintRequest, user: dict = Depends(get_current_user)):
     """
     **Print a new traceability tag (QR/Barcode).**
 
@@ -66,7 +67,7 @@ def print_tag(body: KanbanPrintRequest):
 
 # ── 2. Re-Print  ───────────────────────────────────────────────────
 @router.post("/reprint", response_model=KanbanPrintResponse)
-def reprint_tag(body: KanbanRePrintRequest):
+def reprint_tag(body: KanbanRePrintRequest, user: dict = Depends(get_current_user)):
     """
     **Re-print a traceability tag (supervisor authentication required).**
 
@@ -113,7 +114,7 @@ def reprint_tag(body: KanbanRePrintRequest):
         404: {"model": GetImageResponse, "description": "No image found"},
     },
 )
-def get_image(supplier_part: str):
+def get_image(supplier_part: str, user: dict = Depends(get_current_user)):
     """
     **Retrieve the supplier-part image (binary).**
 
@@ -133,7 +134,7 @@ def get_image(supplier_part: str):
 
 # ── 4. Change Lot Number  ──────────────────────────────────────────
 @router.post("/change-lot-no", response_model=ChangeLotNoResponse)
-def change_lot_no(body: ChangeLotNoRequest):
+def change_lot_no(body: ChangeLotNoRequest, user: dict = Depends(get_current_user)):
     """
     **Change the lot number on a printed kanban tag.**
 
@@ -155,15 +156,9 @@ def change_lot_no(body: ChangeLotNoRequest):
 
 # ── 5. Scan Barcode  ───────────────────────────────────────────────
 @router.post("/scan", response_model=ScanBarcodeResponse)
-def scan_barcode(body: ScanBarcodeRequest):
-
-    result = print_service.scan_barcode(
-        barcode=body.barcode,
-        supplier_code=body.supplier_code,
-        plant_code=body.plant_code,
-        station_no=body.station_no,
-        supplier_part_no=body.supplier_part_no,
-    )
+def scan_barcode(body: ScanBarcodeRequest, user: dict = Depends(get_current_user)):
+    """Scan a barcode and return all tag details to auto-fill the form."""
+    result = print_service.scan_barcode(barcode=body.barcode)
     if not result.success:
         raise HTTPException(status_code=404, detail=result.message)
     return result

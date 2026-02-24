@@ -43,6 +43,9 @@ class LoginResponse(BaseModel):
     success: bool
     message: str
     data: Optional[LoginUserData] = None
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    token_type: Optional[str] = "bearer"
 
 
 class TraceabilityUserData(BaseModel):
@@ -83,6 +86,9 @@ class SupervisorLoginResponse(BaseModel):
     success: bool
     message: str
     data: Optional[SupervisorData] = None
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    token_type: Optional[str] = "bearer"
 
 
 # ── Model List & Selection ────────────────────────────────────────
@@ -203,3 +209,18 @@ class UnlockFieldsResponse(BaseModel):
     unlocked: bool
     supervisor_verified: bool
     data: Optional[SupervisorData] = None
+
+
+# ── Token Refresh ─────────────────────────────────────────────────
+
+class RefreshTokenRequest(BaseModel):
+    """Send the refresh token to get a new access token."""
+    refresh_token: str
+
+
+class RefreshTokenResponse(BaseModel):
+    success: bool
+    message: str
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    token_type: Optional[str] = "bearer"

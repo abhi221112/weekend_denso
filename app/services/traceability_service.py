@@ -3,7 +3,8 @@ Service layer – business logic for the Traceability Tag Print flow.
 Maps raw SP result dicts → typed response schemas.
 """
 
-from app.repositories import traceability_repo
+from app.data_access import traceability_dal
+from app.utils.jwt_handler import create_access_token, create_refresh_token
 from app.schemas.traceability_schema import (
     LoginResponse,
     LoginUserData,
@@ -24,7 +25,7 @@ from app.schemas.traceability_schema import (
 # 1.  Login  (VALIDATEUSER_PC)
 # ─────────────────────────────────────────────────────────────────
 def login(user_id: str, password: str) -> LoginResponse:
-    row = traceability_repo.validate_user_pc(user_id, password)
+    row = traceability_dal.validate_user_pc(user_id, password)
 
     if row is None or row.get("RESULT") != "Y":
         msg = (row or {}).get("MSG", "Invalid user ID or password")
@@ -44,14 +45,26 @@ def login(user_id: str, password: str) -> LoginResponse:
         packing_station=row.get("PackingStation"),
         plant_name=row.get("PlantName"),
     )
-    return LoginResponse(success=True, message="Login successful", data=data)
 
+    # Generate JWT tokens
+    token_data = {
+        "user_id": data.user_id,
+        "supplier_code": data.supplier_code or "",
+        "group_name": data.group_name or "",
+    }
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token({"user_id": data.user_id})
 
-# ─────────────────────────────────────────────────────────────────
-# 2.  Traceability Tag screen auto-fill  (VALIDATEUSER)
+    return LoginResponse(
+        success=True,
+        message="Login successful",
+        data=data,
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
 # ─────────────────────────────────────────────────────────────────
 def get_traceability_user(user_id: str, password: str) -> TraceabilityUserResponse:
-    row = traceability_repo.validate_user(user_id, password)
+    row = traceability_dal.validate_user(user_id, password)
 
     if row is None or not row.get("SupplierPlantCode"):
         return TraceabilityUserResponse(
@@ -82,7 +95,7 @@ def get_traceability_user(user_id: str, password: str) -> TraceabilityUserRespon
 # 3.  Supervisor auth for Model Change  (VALIDATE_DEVICE_SUPERVISOR)
 # ─────────────────────────────────────────────────────────────────
 def validate_supervisor(user_id: str, password: str) -> SupervisorLoginResponse:
-    row = traceability_repo.validate_device_supervisor(user_id, password)
+    row = traceability_dal.validate_device_supervisor(user_id, password)
 
     if row is None or not row.get("SupplierPlantCode"):
         return SupervisorLoginResponse(
@@ -104,8 +117,23 @@ def validate_supervisor(user_id: str, password: str) -> SupervisorLoginResponse:
         created_by=row.get("CreatedBy"),
         created_on=row.get("CreatedOn"),
     )
+
+    # Generate JWT tokens for supervisor
+    token_data = {
+        "user_id": data.user_id,
+        "supplier_code": data.supplier_code or "",
+        "group_name": data.group_name or "",
+        "role": "supervisor",
+    }
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token({"user_id": data.user_id})
+
     return SupervisorLoginResponse(
-        success=True, message="Supervisor validated", data=data
+        success=True,
+        message="Supervisor validated",
+        data=data,
+        access_token=access_token,
+        refresh_token=refresh_token,
     )
 
 
@@ -123,7 +151,7 @@ def get_model_list(
 
     SP call: PRC_PrintKanban @Type = 'GET_SUPPLIERPART'
     """
-    rows = traceability_repo.get_supplier_parts(
+    rows = traceability_dal.get_supplier_parts(
         station_no, plant_code, printed_by
     )
 
@@ -163,7 +191,7 @@ def confirm_model_selection(
     
     SP call: PRC_PrintKanban @Type = 'GET_PRINT_PARAMETER'
     """
-    rows = traceability_repo.get_print_parameter(
+    rows = traceability_dal.get_print_parameter(
         supplier_part_no, supplier_code, plant_code, station_no
     )
 
@@ -263,7 +291,7 @@ def lock_fields(
       - 'Disable' → locking not allowed for this part
       - 'Enable' / 'STANDARD' → lock is allowed
     """
-    success, lot_lock_type = traceability_repo.lock_fields(
+    success, lot_lock_type = traceability_dal.lock_fields(
         supplier_part_no, supplier_code, plant_code, station_no
     )
 
@@ -313,7 +341,7 @@ def unlock_fields(
     Called when user clicks the Unlock button and completes supervisor login.
     """
     # First validate supervisor credentials
-    supervisor_row = traceability_repo.validate_device_supervisor(user_id, password)
+    supervisor_row = traceability_dal.validate_device_supervisor(user_id, password)
 
     if supervisor_row is None or not supervisor_row.get("SupplierPlantCode"):
         return UnlockFieldsResponse(
@@ -325,7 +353,7 @@ def unlock_fields(
         )
 
     # Supervisor authenticated, now unlock fields
-    unlock_success = traceability_repo.unlock_fields(
+    unlock_success = traceability_dal.unlock_fields(
         supplier_part_no, supplier_code, plant_code, station_no
     )
 

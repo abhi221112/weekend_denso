@@ -11,8 +11,8 @@ The SP KANBAN_PRINT and KANBAN_RE_PRINT return two columns:
 The Result column is split on '~' to populate PrintResultData.
 """
 
-from app.repositories import print_repo
-from app.repositories import traceability_repo
+from app.data_access import print_dal
+from app.data_access import traceability_dal
 from app.schemas.print_schema import (
     KanbanPrintResponse,
     PrintResultData,
@@ -131,7 +131,7 @@ def print_tag(
     gross_weight: str | None,
 ) -> KanbanPrintResponse:
     """Execute KANBAN_PRINT SP and return parsed response."""
-    row = print_repo.kanban_print(
+    row = print_dal.kanban_print(
         company_code=company_code,
         plant_code=plant_code,
         station_no=station_no,
@@ -187,7 +187,7 @@ def reprint_tag(
     2. If valid, execute KANBAN_RE_PRINT SP.
     """
     # ── Step 1: supervisor auth ──────────────────────────────────
-    sup_row = traceability_repo.validate_device_supervisor(
+    sup_row = traceability_dal.validate_device_supervisor(
         supervisor_user_id, supervisor_password
     )
     if sup_row is None or not sup_row.get("SupplierPlantCode"):
@@ -198,7 +198,7 @@ def reprint_tag(
         )
 
     # ── Step 2: call the SP ──────────────────────────────────────
-    row = print_repo.kanban_reprint(
+    row = print_dal.kanban_reprint(
         company_code=company_code,
         plant_code=plant_code,
         station_no=station_no,
@@ -228,7 +228,7 @@ def reprint_tag(
 # ─────────────────────────────────────────────────────────────────
 def get_image(supplier_part: str) -> bytes | None:
     """Return raw image bytes or None if not found."""
-    return print_repo.get_print_image(supplier_part)
+    return print_dal.get_print_image(supplier_part)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -248,7 +248,7 @@ def change_lot_no(
     """
     from app.schemas.print_schema import ChangeLotNoResponse
 
-    result = print_repo.change_lot_no(
+    result = print_dal.change_lot_no(
         barcode=barcode,
         new_lot_no=new_lot_no,
         supplier_code=supplier_code,
@@ -275,26 +275,14 @@ def change_lot_no(
 # ─────────────────────────────────────────────────────────────────
 # 5.  Scan Barcode – auto-fill form from scanned barcode
 # ─────────────────────────────────────────────────────────────────
-def scan_barcode(
-    barcode: str,
-    supplier_code: str | None = None,
-    plant_code: str | None = None,
-    station_no: str | None = None,
-    supplier_part_no: str | None = None,
-):
+def scan_barcode(barcode: str):
     """
     Look up a scanned barcode and return all part details
     to auto-fill the Supplier Part Details form.
     """
     from app.schemas.print_schema import ScanBarcodeResponse, ScanBarcodeData
 
-    row = print_repo.scan_barcode(
-        barcode=barcode,
-        supplier_code=supplier_code,
-        plant_code=plant_code,
-        station_no=station_no,
-        supplier_part_no=supplier_part_no,
-    )
+    row = print_dal.scan_barcode(barcode=barcode)
 
     if row is None:
         return ScanBarcodeResponse(

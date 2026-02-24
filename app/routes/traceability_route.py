@@ -13,7 +13,7 @@ Flow (matches the desktop app screenshots):
   Lot No. 1 & Lot No. 2 fields are entered manually by the user.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 
 from app.schemas.traceability_schema import (
     LoginRequest,
@@ -30,8 +30,11 @@ from app.schemas.traceability_schema import (
     LockFieldsResponse,
     UnlockFieldsRequest,
     UnlockFieldsResponse,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
 )
 from app.services import traceability_service
+from app.utils.jwt_handler import get_current_user, verify_token, create_access_token, create_refresh_token
 
 router = APIRouter(
     prefix="/api/traceability",
@@ -59,7 +62,7 @@ def login(body: LoginRequest):
 
 # ── 2. Traceability Tag auto-fill  ─────────────────────────────────
 @router.post("/traceability-user", response_model=TraceabilityUserResponse)
-def get_traceability_user(body: TraceabilityUserRequest):
+def get_traceability_user(body: TraceabilityUserRequest, user: dict = Depends(get_current_user)):
     """
     **Step 2 – Open Traceability Tag Tab**
 
@@ -94,7 +97,7 @@ def supervisor_login(body: SupervisorLoginRequest):
 
 # ── 4. Get Model List (after supervisor login)  ────────────────
 @router.post("/model-list", response_model=GetModelListResponse)
-def get_model_list(body: GetModelListRequest):
+def get_model_list(body: GetModelListRequest, user: dict = Depends(get_current_user)):
     """
     **Step 4 – Get Available Models (Supplier Part Numbers)**
 
@@ -128,7 +131,7 @@ def get_model_list(body: GetModelListRequest):
 
 # ── 5. Confirm Model Selection (auto-fill all fields)  ────────────
 @router.post("/confirm-model", response_model=ConfirmModelSelectionResponse)
-def confirm_model_selection(body: ConfirmModelSelectionRequest):
+def confirm_model_selection(body: ConfirmModelSelectionRequest, user: dict = Depends(get_current_user)):
     """
     **Step 5 – Select Model → Auto-Fill All Fields**
 
@@ -170,7 +173,7 @@ def confirm_model_selection(body: ConfirmModelSelectionRequest):
 
 # ── 6. Lock Fields (make them read-only)  ──────────────────────
 @router.post("/lock-fields", response_model=LockFieldsResponse)
-def lock_fields_endpoint(body: LockFieldsRequest):
+def lock_fields_endpoint(body: LockFieldsRequest, user: dict = Depends(get_current_user)):
     """
     **Step 6 – Lock Fields**
 
@@ -195,7 +198,7 @@ def lock_fields_endpoint(body: LockFieldsRequest):
 
 # ── 7. Unlock Fields (with supervisor auth)  ──────────────────
 @router.post("/unlock-fields", response_model=UnlockFieldsResponse)
-def unlock_fields_endpoint(body: UnlockFieldsRequest):
+def unlock_fields_endpoint(body: UnlockFieldsRequest, user: dict = Depends(get_current_user)):
     """
     **Step 7 – Unlock Fields (Supervisor Auth Required)**
 
@@ -215,4 +218,26 @@ def unlock_fields_endpoint(body: UnlockFieldsRequest):
     if not result.success:
         raise HTTPException(status_code=403, detail=result.message)
     return result
+
+
+# ── 8. Refresh Token  ─────────────────────────────────────────────
+@router.post("/refresh-token", response_model=RefreshTokenResponse)
+def refresh_token(body: RefreshTokenRequest):
+    """
+    **Refresh an expired access token.**
+
+    Send the refresh token to get a new access + refresh token pair.
+    """
+    payload = verify_token(body.refresh_token, expected_type="refresh")
+
+    token_data = {"user_id": payload["user_id"]}
+    new_access = create_access_token(token_data)
+    new_refresh = create_refresh_token(token_data)
+
+    return RefreshTokenResponse(
+        success=True,
+        message="Token refreshed successfully",
+        access_token=new_access,
+        refresh_token=new_refresh,
+    )
 

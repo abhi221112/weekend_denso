@@ -114,16 +114,8 @@ class GetImageResponse(BaseModel):
 # ── Scan Barcode Request / Response ──────────────────────────────
 
 class ScanBarcodeRequest(BaseModel):
-    """
-    Request body for barcode scan.
-    The scanned barcode string is used to look up all part details
-    and auto-fill the Supplier Part Details form.
-    """
+    """Request body for barcode scan – only barcode is needed."""
     barcode: str
-    supplier_code: Optional[str] = None
-    plant_code: Optional[str] = None
-    station_no: Optional[str] = None
-    supplier_part_no: Optional[str] = None
 
 
 class ScanBarcodeData(BaseModel):

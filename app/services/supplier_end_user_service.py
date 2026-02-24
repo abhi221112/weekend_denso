@@ -3,7 +3,7 @@ Service layer – business logic for user/supervisor registration.
 Maps raw SP results → typed response models.
 """
 
-from app.repositories import register_repo
+from app.data_access import register_dal
 from app.models.supplier_end_user import (
     SupplierEndUserCreate,
     SupplierEndUserUpdate,
@@ -24,7 +24,7 @@ class SupplierEndUserService:
         Calls SP @Type = 'INSERT'.
         """
         try:
-            result = register_repo.register_user(
+            result = register_dal.register_user(
                 user_id=user_data.user_id,
                 user_name=user_data.user_name,
                 password=user_data.password,
@@ -82,7 +82,7 @@ class SupplierEndUserService:
     ) -> dict:
         """Update an existing user. Calls SP @Type = 'UPDATE'."""
         try:
-            result = register_repo.update_user(
+            result = register_dal.update_user(
                 user_id=user_id,
                 user_name=user_data.user_name or "",
                 password=user_data.password or "",
@@ -110,7 +110,7 @@ class SupplierEndUserService:
     def delete_user(self, user_id: str, supplier_code: str) -> dict:
         """Delete a user. Calls SP @Type = 'DELETE'."""
         try:
-            result = register_repo.delete_user(user_id)
+            result = register_dal.delete_user(user_id)
 
             if result is None:
                 return {"success": False, "message": "No response from database"}
@@ -129,7 +129,7 @@ class SupplierEndUserService:
     def get_all_users(self, supplier_code: str, created_by: str) -> dict:
         """Get all users. Calls SP @Type = 'SELECT'."""
         try:
-            rows = register_repo.get_all_users(created_by)
+            rows = register_dal.get_all_users(created_by)
 
             users = []
             for row in rows:
@@ -164,7 +164,7 @@ class SupplierEndUserService:
     def get_user(self, user_id: str, supplier_code: str) -> dict:
         """Get a single user by ID from the user list."""
         try:
-            rows = register_repo.get_all_users("")
+            rows = register_dal.get_all_users("")
             for row in rows:
                 if row.get("UserID") == user_id:
                     return {
@@ -191,7 +191,7 @@ class SupplierEndUserService:
     def get_groups(self) -> dict:
         """Get available user groups. Calls SP @Type = 'SELECT_GROUP'."""
         try:
-            rows = register_repo.get_user_groups()
+            rows = register_dal.get_user_groups()
             groups = [
                 {"group_id": r.get("GroupID"), "group_name": r.get("GroupName", "")}
                 for r in rows
@@ -210,7 +210,7 @@ class SupplierEndUserService:
     def get_plants(self, created_by: str) -> dict:
         """Get available plants. Calls SP @Type = 'Get_Plant'."""
         try:
-            rows = register_repo.get_plants(created_by)
+            rows = register_dal.get_plants(created_by)
             plants = [
                 {"plant_code": r.get("PlantCode", ""), "plant_name": r.get("PlantName", "")}
                 for r in rows
@@ -229,7 +229,7 @@ class SupplierEndUserService:
     def get_packing_stations(self, plant_code: str, supplier_code: str) -> dict:
         """Get packing stations for a plant. Calls SP @Type = 'Get_Packing_Station'."""
         try:
-            rows = register_repo.get_packing_stations(plant_code, supplier_code)
+            rows = register_dal.get_packing_stations(plant_code, supplier_code)
             stations = [
                 {"station_no": r.get("StationNo", ""), "station_name": r.get("StationName", "")}
                 for r in rows
@@ -257,7 +257,7 @@ class SupplierEndUserService:
                     "message": "New password cannot be the same as the old password",
                 }
 
-            result = register_repo.change_password(
+            result = register_dal.change_password(
                 user_id=data.user_id,
                 old_password=data.old_password,
                 new_password=data.new_password,

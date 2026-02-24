@@ -9,7 +9,7 @@ Endpoints:
   POST /api/rework/reprint-parameter     → GET_REPRINT_PARAMETER
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 
 from app.schemas.rework_schema import (
     ReworkValidateTagRequest,
@@ -24,6 +24,7 @@ from app.schemas.rework_schema import (
     ReworkReprintParamResponse,
 )
 from app.services import rework_service
+from app.utils.jwt_handler import get_current_user
 
 router = APIRouter(
     prefix="/api/rework",
@@ -33,7 +34,7 @@ router = APIRouter(
 
 # ── 1. Validate Tag (scan barcode)  ───────────────────────────────
 @router.post("/validate-tag", response_model=ReworkValidateTagResponse)
-def validate_tag(body: ReworkValidateTagRequest):
+def validate_tag(body: ReworkValidateTagRequest, user: dict = Depends(get_current_user)):
     """
     **Validate / scan a barcode for rework.**
 
@@ -54,7 +55,7 @@ def validate_tag(body: ReworkValidateTagRequest):
 
 # ── 2. Get Print Details  ─────────────────────────────────────────
 @router.post("/print-details", response_model=ReworkGetPrintDetailsResponse)
-def get_print_details(body: ReworkGetPrintDetailsRequest):
+def get_print_details(body: ReworkGetPrintDetailsRequest, user: dict = Depends(get_current_user)):
     """
     **Get last 3 rework print records for a supplier part + lot.**
 
@@ -72,7 +73,7 @@ def get_print_details(body: ReworkGetPrintDetailsRequest):
 
 # ── 3. Get Last Print Details  ────────────────────────────────────
 @router.post("/last-print-details", response_model=ReworkGetLastPrintResponse)
-def get_last_print_details(body: ReworkGetLastPrintRequest):
+def get_last_print_details(body: ReworkGetLastPrintRequest, user: dict = Depends(get_current_user)):
     """
     **Get last running serial number and tag counts.**
 
@@ -88,7 +89,7 @@ def get_last_print_details(body: ReworkGetLastPrintRequest):
 
 # ── 4. Rework Print  ─────────────────────────────────────────────
 @router.post("/print", response_model=ReworkPrintResponse)
-def rework_print(body: ReworkPrintRequest):
+def rework_print(body: ReworkPrintRequest, user: dict = Depends(get_current_user)):
     """
     **Print a rework traceability tag.**
 
@@ -128,7 +129,7 @@ def rework_print(body: ReworkPrintRequest):
 
 # ── 5. Get Reprint Parameter  ────────────────────────────────────
 @router.post("/reprint-parameter", response_model=ReworkReprintParamResponse)
-def get_reprint_parameter(body: ReworkReprintParamRequest):
+def get_reprint_parameter(body: ReworkReprintParamRequest, user: dict = Depends(get_current_user)):
     """
     **Get lot structure parameters for reprint.**
 

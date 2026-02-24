@@ -13,7 +13,7 @@ Endpoints:
   GET    /api/register/stations          → Get packing stations (for dropdown)
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 
 from app.models.supplier_end_user import (
     SupplierEndUserCreate,
@@ -21,6 +21,7 @@ from app.models.supplier_end_user import (
     ChangePasswordRequest,
 )
 from app.services.supplier_end_user_service import SupplierEndUserService
+from app.utils.jwt_handler import get_current_user
 
 router = APIRouter(
     prefix="/api/register",
@@ -32,7 +33,7 @@ service = SupplierEndUserService()
 
 # ── 1. Register User ───────────────────────────────────────────────
 @router.post("/user", response_model=dict)
-def register_user(body: SupplierEndUserCreate):
+def register_user(body: SupplierEndUserCreate, user: dict = Depends(get_current_user)):
     """
     **Register a new End User**
 
@@ -62,7 +63,7 @@ def register_user(body: SupplierEndUserCreate):
 
 # ── 2. Register Supervisor ────────────────────────────────────────
 @router.post("/supervisor", response_model=dict)
-def register_supervisor(body: SupplierEndUserCreate):
+def register_supervisor(body: SupplierEndUserCreate, user: dict = Depends(get_current_user)):
     """
     **Register a new Supervisor**
 
@@ -94,7 +95,7 @@ def register_supervisor(body: SupplierEndUserCreate):
 
 # ── 3. Change Password ─────────────────────────────────────────────
 @router.post("/change-password", response_model=dict)
-def change_password(body: ChangePasswordRequest):
+def change_password(body: ChangePasswordRequest, user: dict = Depends(get_current_user)):
     """
     **Change password for a User or Supervisor**
 
@@ -120,7 +121,7 @@ def change_password(body: ChangePasswordRequest):
 
 # ── 4. Update User/Supervisor ─────────────────────────────────────
 @router.put("/{user_id}", response_model=dict)
-def update_user(user_id: str, body: SupplierEndUserUpdate):
+def update_user(user_id: str, body: SupplierEndUserUpdate, user: dict = Depends(get_current_user)):
     """
     **Update an existing User or Supervisor**
 
@@ -134,7 +135,7 @@ def update_user(user_id: str, body: SupplierEndUserUpdate):
 
 # ── 5. Delete User/Supervisor ─────────────────────────────────────
 @router.delete("/{user_id}", response_model=dict)
-def delete_user(user_id: str):
+def delete_user(user_id: str, user: dict = Depends(get_current_user)):
     """
     **Delete a User or Supervisor**
 
@@ -148,7 +149,7 @@ def delete_user(user_id: str):
 
 # ── 5. List All Users ─────────────────────────────────────────────
 @router.get("/list", response_model=dict)
-def list_users(created_by: str = ""):
+def list_users(created_by: str = "", user: dict = Depends(get_current_user)):
     """
     **List all registered Users & Supervisors**
 
@@ -163,7 +164,7 @@ def list_users(created_by: str = ""):
 
 # ── 6. Get Groups (dropdown) ──────────────────────────────────────
 @router.get("/groups", response_model=dict)
-def get_groups():
+def get_groups(user: dict = Depends(get_current_user)):
     """
     **Get available user groups**
 
@@ -178,7 +179,7 @@ def get_groups():
 
 # ── 7. Get Plants (dropdown) ──────────────────────────────────────
 @router.get("/plants", response_model=dict)
-def get_plants(created_by: str = ""):
+def get_plants(created_by: str = "", user: dict = Depends(get_current_user)):
     """
     **Get available plant codes**
 
@@ -192,7 +193,7 @@ def get_plants(created_by: str = ""):
 
 # ── 8. Get Packing Stations (dropdown) ────────────────────────────
 @router.get("/stations", response_model=dict)
-def get_packing_stations(plant_code: str, supplier_code: str):
+def get_packing_stations(plant_code: str, supplier_code: str, user: dict = Depends(get_current_user)):
     """
     **Get packing stations for a plant**
 
