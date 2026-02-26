@@ -6,6 +6,9 @@ mirroring exactly what the C# DL_KanbanPrint class does.
 """
 
 from app.utils.database import get_db_connection
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _row_to_dict(cursor, row):
@@ -70,6 +73,7 @@ def kanban_print(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: kanban_print for part=%s, lot=%s", supplier_part_no, lot_no_1)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -113,7 +117,9 @@ def kanban_print(
             old_barcode,
             gross_weight,
         )
-        return _fetch_sp_result(cursor)
+        result = _fetch_sp_result(cursor)
+        conn.commit()
+        return result
     finally:
         conn.close()
 
@@ -155,6 +161,7 @@ def kanban_reprint(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: kanban_reprint for old_barcode=%s, part=%s", old_barcode, supplier_part_no)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -198,7 +205,9 @@ def kanban_reprint(
             old_barcode,
             gross_weight,
         )
-        return _fetch_sp_result(cursor)
+        result = _fetch_sp_result(cursor)
+        conn.commit()
+        return result
     finally:
         conn.close()
 
@@ -219,6 +228,7 @@ def get_print_image(supplier_part: str) -> bytes | None:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_print_image for supplier_part=%s", supplier_part)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -259,6 +269,7 @@ def change_lot_no(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: change_lot_no for barcode=%s, new_lot=%s", barcode, new_lot_no)
         # First fetch the current lot number
         cursor.execute(
             """
@@ -319,6 +330,7 @@ def scan_barcode(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: scan_barcode for barcode=%s", barcode)
         cursor.execute(
             """
             SET NOCOUNT ON;

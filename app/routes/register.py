@@ -22,6 +22,9 @@ from app.models.supplier_end_user import (
 )
 from app.services.supplier_end_user_service import SupplierEndUserService
 from app.utils.jwt_handler import get_current_user
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/api/register",
@@ -33,7 +36,7 @@ service = SupplierEndUserService()
 
 # ── 1. Register User ───────────────────────────────────────────────
 @router.post("/user", response_model=dict)
-def register_user(body: SupplierEndUserCreate, user: dict = Depends(get_current_user)):
+def register_user(body: SupplierEndUserCreate):
     """
     **Register a new End User**
 
@@ -55,9 +58,12 @@ def register_user(body: SupplierEndUserCreate, user: dict = Depends(get_current_
     }
     ```
     """
+    logger.info("Registering new user: %s", body.user_id)
     result = service.create_user(body)
     if not result["success"]:
+        logger.warning("User registration failed for %s: %s", body.user_id, result["message"])
         raise HTTPException(status_code=400, detail=result["message"])
+    logger.info("User registered successfully: %s", body.user_id)
     return result
 
 
@@ -87,9 +93,12 @@ def register_supervisor(body: SupplierEndUserCreate, user: dict = Depends(get_cu
     ```
     """
     # Same SP, different group_id determines supervisor role
+    logger.info("Registering new supervisor: %s", body.user_id)
     result = service.create_user(body)
     if not result["success"]:
+        logger.warning("Supervisor registration failed for %s: %s", body.user_id, result["message"])
         raise HTTPException(status_code=400, detail=result["message"])
+    logger.info("Supervisor registered successfully: %s", body.user_id)
     return result
 
 
@@ -113,9 +122,12 @@ def change_password(body: ChangePasswordRequest, user: dict = Depends(get_curren
     }
     ```
     """
+    logger.info("Password change requested for user_id=%s", body.user_id)
     result = service.change_password(body)
     if not result["success"]:
+        logger.warning("Password change failed for %s: %s", body.user_id, result["message"])
         raise HTTPException(status_code=400, detail=result["message"])
+    logger.info("Password changed successfully for user_id=%s", body.user_id)
     return result
 
 
@@ -127,9 +139,12 @@ def update_user(user_id: str, body: SupplierEndUserUpdate, user: dict = Depends(
 
     SP call: `PRC_UserSupplier_EndUser @Type = 'UPDATE'`
     """
+    logger.info("Updating user: %s", user_id)
     result = service.update_user(user_id, body, body.supplier_code or "")
     if not result["success"]:
+        logger.warning("User update failed for %s: %s", user_id, result["message"])
         raise HTTPException(status_code=400, detail=result["message"])
+    logger.info("User updated successfully: %s", user_id)
     return result
 
 
@@ -141,9 +156,12 @@ def delete_user(user_id: str, user: dict = Depends(get_current_user)):
 
     SP call: `PRC_UserSupplier_EndUser @Type = 'DELETE'`
     """
+    logger.info("Deleting user: %s", user_id)
     result = service.delete_user(user_id, "")
     if not result["success"]:
+        logger.warning("User deletion failed for %s: %s", user_id, result["message"])
         raise HTTPException(status_code=400, detail=result["message"])
+    logger.info("User deleted successfully: %s", user_id)
     return result
 
 
@@ -158,6 +176,7 @@ def list_users(created_by: str = "", user: dict = Depends(get_current_user)):
     Query params:
     - `created_by`: Filter by creator user ID (optional)
     """
+    logger.info("Listing users (created_by=%s)", created_by)
     result = service.get_all_users("", created_by)
     return result
 
@@ -173,6 +192,7 @@ def get_groups(user: dict = Depends(get_current_user)):
 
     SP call: `PRC_UserSupplier_EndUser @Type = 'SELECT_GROUP'`
     """
+    logger.info("Fetching user groups")
     result = service.get_groups()
     return result
 
@@ -187,6 +207,7 @@ def get_plants(created_by: str = "", user: dict = Depends(get_current_user)):
 
     SP call: `PRC_UserSupplier_EndUser @Type = 'Get_Plant'`
     """
+    logger.info("Fetching plants (created_by=%s)", created_by)
     result = service.get_plants(created_by)
     return result
 
@@ -201,5 +222,6 @@ def get_packing_stations(plant_code: str, supplier_code: str, user: dict = Depen
 
     SP call: `PRC_UserSupplier_EndUser @Type = 'Get_Packing_Station'`
     """
+    logger.info("Fetching packing stations for plant=%s, supplier=%s", plant_code, supplier_code)
     result = service.get_packing_stations(plant_code, supplier_code)
     return result

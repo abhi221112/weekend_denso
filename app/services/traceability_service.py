@@ -5,6 +5,7 @@ Maps raw SP result dicts → typed response schemas.
 
 from app.data_access import traceability_dal
 from app.utils.jwt_handler import create_access_token, create_refresh_token
+from app.utils.logger import get_logger
 from app.schemas.traceability_schema import (
     LoginResponse,
     LoginUserData,
@@ -20,15 +21,19 @@ from app.schemas.traceability_schema import (
     UnlockFieldsResponse,
 )
 
+logger = get_logger(__name__)
+
 
 # ─────────────────────────────────────────────────────────────────
 # 1.  Login  (VALIDATEUSER_PC)
 # ─────────────────────────────────────────────────────────────────
 def login(user_id: str, password: str) -> LoginResponse:
+    logger.info("Service: login called for user_id=%s", user_id)
     row = traceability_dal.validate_user_pc(user_id, password)
 
     if row is None or row.get("RESULT") != "Y":
         msg = (row or {}).get("MSG", "Invalid user ID or password")
+        logger.warning("Service: login failed for user_id=%s: %s", user_id, msg)
         return LoginResponse(success=False, message=msg, data=None)
 
     data = LoginUserData(
@@ -55,6 +60,7 @@ def login(user_id: str, password: str) -> LoginResponse:
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token({"user_id": data.user_id})
 
+    logger.info("Service: login successful for user_id=%s", user_id)
     return LoginResponse(
         success=True,
         message="Login successful",
@@ -64,6 +70,7 @@ def login(user_id: str, password: str) -> LoginResponse:
     )
 # ─────────────────────────────────────────────────────────────────
 def get_traceability_user(user_id: str, password: str) -> TraceabilityUserResponse:
+    logger.info("Service: get_traceability_user called for user_id=%s", user_id)
     row = traceability_dal.validate_user(user_id, password)
 
     if row is None or not row.get("SupplierPlantCode"):
@@ -95,9 +102,11 @@ def get_traceability_user(user_id: str, password: str) -> TraceabilityUserRespon
 # 3.  Supervisor auth for Model Change  (VALIDATE_DEVICE_SUPERVISOR)
 # ─────────────────────────────────────────────────────────────────
 def validate_supervisor(user_id: str, password: str) -> SupervisorLoginResponse:
+    logger.info("Service: validate_supervisor called for user_id=%s", user_id)
     row = traceability_dal.validate_device_supervisor(user_id, password)
 
     if row is None or not row.get("SupplierPlantCode"):
+        logger.warning("Service: supervisor validation failed for user_id=%s", user_id)
         return SupervisorLoginResponse(
             success=False,
             message="Supervisor authentication failed or insufficient rights",
@@ -128,6 +137,7 @@ def validate_supervisor(user_id: str, password: str) -> SupervisorLoginResponse:
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token({"user_id": data.user_id})
 
+    logger.info("Service: supervisor validated successfully for user_id=%s", user_id)
     return SupervisorLoginResponse(
         success=True,
         message="Supervisor validated",
@@ -151,6 +161,7 @@ def get_model_list(
 
     SP call: PRC_PrintKanban @Type = 'GET_SUPPLIERPART'
     """
+    logger.info("Service: get_model_list for station=%s, plant=%s", station_no, plant_code)
     rows = traceability_dal.get_supplier_parts(
         station_no, plant_code, printed_by
     )
@@ -191,6 +202,7 @@ def confirm_model_selection(
     
     SP call: PRC_PrintKanban @Type = 'GET_PRINT_PARAMETER'
     """
+    logger.info("Service: confirm_model_selection for supplier_part=%s", supplier_part_no)
     rows = traceability_dal.get_print_parameter(
         supplier_part_no, supplier_code, plant_code, station_no
     )
@@ -291,6 +303,7 @@ def lock_fields(
       - 'Disable' → locking not allowed for this part
       - 'Enable' / 'STANDARD' → lock is allowed
     """
+    logger.info("Service: lock_fields for supplier_part=%s", supplier_part_no)
     success, lot_lock_type = traceability_dal.lock_fields(
         supplier_part_no, supplier_code, plant_code, station_no
     )
@@ -340,6 +353,7 @@ def unlock_fields(
     Requires supervisor authentication first.
     Called when user clicks the Unlock button and completes supervisor login.
     """
+    logger.info("Service: unlock_fields for supplier_part=%s by user=%s", supplier_part_no, user_id)
     # First validate supervisor credentials
     supervisor_row = traceability_dal.validate_device_supervisor(user_id, password)
 

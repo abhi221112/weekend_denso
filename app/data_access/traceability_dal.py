@@ -13,6 +13,9 @@ LEFT JOINs, replicating the SP logic without the bugs.
 
 from app.utils.database import get_db_connection
 from app.utils.password_utils import hash_password
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _row_to_dict(cursor, row):
@@ -57,6 +60,7 @@ def validate_user_pc(user_id: str, password: str) -> dict | None:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: validate_user_pc for user_id=%s", user_id)
 
         # ── Path 1: Supplier-admin users ─────────────────────────
         cursor.execute(
@@ -138,6 +142,7 @@ def validate_user(user_id: str, password: str) -> dict | None:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: validate_user for user_id=%s", user_id)
 
         # Check group rights first
         cursor.execute(
@@ -202,6 +207,7 @@ def validate_device_supervisor(user_id: str, password: str) -> dict | None:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: validate_device_supervisor for user_id=%s", user_id)
 
         cursor.execute(
             """
@@ -268,6 +274,7 @@ def get_supplier_parts(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_supplier_parts for station=%s, plant=%s", station_no, plant_code)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -306,6 +313,7 @@ def get_print_parameter(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_print_parameter for supplier_part=%s", supplier_part_no)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -340,6 +348,7 @@ def get_shift(supplier_code: str) -> dict | None:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_shift for supplier_code=%s", supplier_code)
         cursor.execute(
             """
             EXEC [dbo].[PRC_PrintKanban]
@@ -374,6 +383,7 @@ def get_lot_lock_type(supplier_part_no: str) -> str | None:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_lot_lock_type for supplier_part=%s", supplier_part_no)
         cursor.execute(
             """
             SELECT TOP 1 ISNULL(LotLockType, 'Enable') AS LotLockType
@@ -404,6 +414,7 @@ def lock_fields(
     Returns (success: bool, lot_lock_type: str).
     """
     lot_lock_type = get_lot_lock_type(supplier_part_no)
+    logger.info("DAL: lock_fields lot_lock_type=%s for supplier_part=%s", lot_lock_type, supplier_part_no)
 
     if lot_lock_type is None:
         return False, None
@@ -433,6 +444,7 @@ def unlock_fields(
     lock_key = f"{supplier_part_no}:{supplier_code}:{plant_code}:{station_no}"
     if lock_key in _field_lock_states:
         del _field_lock_states[lock_key]
+    logger.info("DAL: unlock_fields for key=%s", lock_key)
     return True
 
 

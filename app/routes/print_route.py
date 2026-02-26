@@ -21,6 +21,9 @@ from app.schemas.print_schema import (
 )
 from app.services import print_service
 from app.utils.jwt_handler import get_current_user
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/api/printing",
@@ -40,6 +43,7 @@ def print_tag(body: KanbanPrintRequest, user: dict = Depends(get_current_user)):
     inserts a row into `TT_Kanban_Print`, and returns the tag data
     (supplier name, serial, barcode, print date/time, count/total).
     """
+    logger.info("Print tag request: supplier_part=%s, lot=%s", body.supplier_part_no, body.lot_no_1)
     result = print_service.print_tag(
         company_code=body.company_code,
         plant_code=body.plant_code,
@@ -61,7 +65,9 @@ def print_tag(body: KanbanPrintRequest, user: dict = Depends(get_current_user)):
         gross_weight=body.gross_weight,
     )
     if not result.success:
+        logger.warning("Print tag failed: %s", result.message)
         raise HTTPException(status_code=400, detail=result.message)
+    logger.info("Print tag successful for supplier_part=%s", body.supplier_part_no)
     return result
 
 
@@ -79,6 +85,7 @@ def reprint_tag(body: KanbanRePrintRequest, user: dict = Depends(get_current_use
 
     SP call: `PRC_PrintKanban @TYPE = 'KANBAN_RE_PRINT'`
     """
+    logger.info("Reprint tag request: old_barcode=%s, supervisor=%s", body.old_barcode, body.supervisor_user_id)
     result = print_service.reprint_tag(
         supervisor_user_id=body.supervisor_user_id,
         supervisor_password=body.supervisor_password,
@@ -102,7 +109,9 @@ def reprint_tag(body: KanbanRePrintRequest, user: dict = Depends(get_current_use
         gross_weight=body.gross_weight,
     )
     if not result.success:
+        logger.warning("Reprint tag failed: %s", result.message)
         raise HTTPException(status_code=400, detail=result.message)
+    logger.info("Reprint tag successful for old_barcode=%s", body.old_barcode)
     return result
 
 
@@ -123,8 +132,10 @@ def get_image(supplier_part: str, user: dict = Depends(get_current_user)):
 
     SP call: `PRC_PrintKanban @TYPE = 'GET_PRINT_IMAGE'`
     """
+    logger.info("Fetching image for supplier_part=%s", supplier_part)
     image_bytes = print_service.get_image(supplier_part)
     if image_bytes is None:
+        logger.warning("No image found for supplier_part=%s", supplier_part)
         raise HTTPException(
             status_code=404,
             detail="No image found for the given supplier part",
@@ -150,7 +161,9 @@ def change_lot_no(body: ChangeLotNoRequest, user: dict = Depends(get_current_use
         modified_by=body.modified_by,
     )
     if not result.success:
+        logger.warning("Change lot no failed: %s", result.message)
         raise HTTPException(status_code=404, detail=result.message)
+    logger.info("Lot number changed for barcode=%s", body.barcode)
     return result
 
 
@@ -158,7 +171,10 @@ def change_lot_no(body: ChangeLotNoRequest, user: dict = Depends(get_current_use
 @router.post("/scan", response_model=ScanBarcodeResponse)
 def scan_barcode(body: ScanBarcodeRequest, user: dict = Depends(get_current_user)):
     """Scan a barcode and return all tag details to auto-fill the form."""
+    logger.info("Scanning barcode: %s", body.barcode)
     result = print_service.scan_barcode(barcode=body.barcode)
     if not result.success:
+        logger.warning("Scan barcode failed for barcode=%s: %s", body.barcode, result.message)
         raise HTTPException(status_code=404, detail=result.message)
+    logger.info("Barcode scanned successfully: %s", body.barcode)
     return result

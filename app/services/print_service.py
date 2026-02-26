@@ -13,10 +13,13 @@ The Result column is split on '~' to populate PrintResultData.
 
 from app.data_access import print_dal
 from app.data_access import traceability_dal
+from app.utils.logger import get_logger
 from app.schemas.print_schema import (
     KanbanPrintResponse,
     PrintResultData,
 )
+
+logger = get_logger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -131,6 +134,7 @@ def print_tag(
     gross_weight: str | None,
 ) -> KanbanPrintResponse:
     """Execute KANBAN_PRINT SP and return parsed response."""
+    logger.info("Service: print_tag for part=%s, lot=%s", supplier_part_no, lot_no_1)
     row = print_dal.kanban_print(
         company_code=company_code,
         plant_code=plant_code,
@@ -153,6 +157,10 @@ def print_tag(
     )
 
     success, msg, data = _parse_print_result(row)
+    if success:
+        logger.info("Service: print_tag successful")
+    else:
+        logger.warning("Service: print_tag failed: %s", msg)
     return KanbanPrintResponse(success=success, message=msg, data=data)
 
 
@@ -191,6 +199,7 @@ def reprint_tag(
         supervisor_user_id, supervisor_password
     )
     if sup_row is None or not sup_row.get("SupplierPlantCode"):
+        logger.warning("Service: reprint_tag supervisor auth failed for %s", supervisor_user_id)
         return KanbanPrintResponse(
             success=False,
             message="Supervisor authentication failed or insufficient rights",
@@ -198,6 +207,7 @@ def reprint_tag(
         )
 
     # ── Step 2: call the SP ──────────────────────────────────────
+    logger.info("Service: reprint_tag executing SP for old_barcode=%s", old_barcode)
     row = print_dal.kanban_reprint(
         company_code=company_code,
         plant_code=plant_code,
@@ -228,6 +238,7 @@ def reprint_tag(
 # ─────────────────────────────────────────────────────────────────
 def get_image(supplier_part: str) -> bytes | None:
     """Return raw image bytes or None if not found."""
+    logger.info("Service: get_image for supplier_part=%s", supplier_part)
     return print_dal.get_print_image(supplier_part)
 
 
@@ -248,6 +259,7 @@ def change_lot_no(
     """
     from app.schemas.print_schema import ChangeLotNoResponse
 
+    logger.info("Service: change_lot_no for barcode=%s, new_lot=%s", barcode, new_lot_no)
     result = print_dal.change_lot_no(
         barcode=barcode,
         new_lot_no=new_lot_no,
@@ -283,6 +295,7 @@ def scan_barcode(barcode: str):
     from app.schemas.print_schema import ScanBarcodeResponse, ScanBarcodeData
 
     row = print_dal.scan_barcode(barcode=barcode)
+    logger.info("Service: scan_barcode for barcode=%s, result=%s", barcode, "found" if row else "not found")
 
     if row is None:
         return ScanBarcodeResponse(

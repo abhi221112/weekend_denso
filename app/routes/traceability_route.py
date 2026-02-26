@@ -15,6 +15,7 @@ Flow (matches the desktop app screenshots):
 
 from fastapi import APIRouter, HTTPException, Depends
 
+from app.utils.logger import get_logger
 from app.schemas.traceability_schema import (
     LoginRequest,
     LoginResponse,
@@ -36,6 +37,8 @@ from app.schemas.traceability_schema import (
 from app.services import traceability_service
 from app.utils.jwt_handler import get_current_user, verify_token, create_access_token, create_refresh_token
 
+logger = get_logger(__name__)
+
 router = APIRouter(
     prefix="/api/traceability",
     tags=["Traceability Tag Print"],
@@ -54,9 +57,12 @@ def login(body: LoginRequest):
 
     Returns user profile with plant, group, supplier info.
     """
+    logger.info("Login attempt for user_id=%s", body.user_id)
     result = traceability_service.login(body.user_id, body.password)
     if not result.success:
+        logger.warning("Login failed for user_id=%s: %s", body.user_id, result.message)
         raise HTTPException(status_code=401, detail=result.message)
+    logger.info("Login successful for user_id=%s", body.user_id)
     return result
 
 
@@ -71,8 +77,10 @@ def get_traceability_user(body: TraceabilityUserRequest, user: dict = Depends(ge
 
     SP call: `@Type = 'VALIDATEUSER'`
     """
+    logger.info("Fetching traceability user for user_id=%s", body.user_id)
     result = traceability_service.get_traceability_user(body.user_id, body.password)
     if not result.success:
+        logger.warning("Traceability user fetch failed: %s", result.message)
         raise HTTPException(status_code=403, detail=result.message)
     return result
 
@@ -89,9 +97,12 @@ def supervisor_login(body: SupervisorLoginRequest):
 
     SP call: `@Type = 'VALIDATE_DEVICE_SUPERVISOR'`
     """
+    logger.info("Supervisor login attempt for user_id=%s", body.user_id)
     result = traceability_service.validate_supervisor(body.user_id, body.password)
     if not result.success:
+        logger.warning("Supervisor login failed for user_id=%s: %s", body.user_id, result.message)
         raise HTTPException(status_code=403, detail=result.message)
+    logger.info("Supervisor login successful for user_id=%s", body.user_id)
     return result
 
 
@@ -119,12 +130,14 @@ def get_model_list(body: GetModelListRequest, user: dict = Depends(get_current_u
     }
     ```
     """
+    logger.info("Fetching model list for station=%s, plant=%s", body.station_no, body.plant_code)
     result = traceability_service.get_model_list(
         body.station_no,
         body.plant_code,
         body.printed_by,
     )
     if not result.success:
+        logger.warning("Model list fetch failed: %s", result.message)
         raise HTTPException(status_code=400, detail=result.message)
     return result
 
@@ -160,6 +173,7 @@ def confirm_model_selection(body: ConfirmModelSelectionRequest, user: dict = Dep
     }
     ```
     """
+    logger.info("Confirming model selection for supplier_part=%s", body.supplier_part_no)
     result = traceability_service.confirm_model_selection(
         body.supplier_part_no,
         body.supplier_code,
@@ -167,6 +181,7 @@ def confirm_model_selection(body: ConfirmModelSelectionRequest, user: dict = Dep
         body.station_no,
     )
     if not result.success:
+        logger.warning("Model confirmation failed: %s", result.message)
         raise HTTPException(status_code=400, detail=result.message)
     return result
 
@@ -185,6 +200,7 @@ def lock_fields_endpoint(body: LockFieldsRequest, user: dict = Depends(get_curre
     - `Enable` / `STANDARD` → lock is allowed
     - `Disable` → lock is **not** allowed for this part
     """
+    logger.info("Locking fields for supplier_part=%s", body.supplier_part_no)
     result = traceability_service.lock_fields(
         body.supplier_part_no,
         body.supplier_code,
@@ -192,6 +208,7 @@ def lock_fields_endpoint(body: LockFieldsRequest, user: dict = Depends(get_curre
         body.station_no,
     )
     if not result.success:
+        logger.warning("Lock fields failed: %s", result.message)
         raise HTTPException(status_code=400, detail=result.message)
     return result
 
@@ -207,6 +224,7 @@ def unlock_fields_endpoint(body: UnlockFieldsRequest, user: dict = Depends(get_c
     2. Only users with supervisor rights can authenticate
     3. After successful auth, fields become editable
     """
+    logger.info("Unlocking fields for supplier_part=%s by user=%s", body.supplier_part_no, body.user_id)
     result = traceability_service.unlock_fields(
         body.user_id,
         body.password,
@@ -216,6 +234,7 @@ def unlock_fields_endpoint(body: UnlockFieldsRequest, user: dict = Depends(get_c
         body.station_no,
     )
     if not result.success:
+        logger.warning("Unlock fields failed: %s", result.message)
         raise HTTPException(status_code=403, detail=result.message)
     return result
 
@@ -228,12 +247,14 @@ def refresh_token(body: RefreshTokenRequest):
 
     Send the refresh token to get a new access + refresh token pair.
     """
+    logger.info("Token refresh requested")
     payload = verify_token(body.refresh_token, expected_type="refresh")
 
     token_data = {"user_id": payload["user_id"]}
     new_access = create_access_token(token_data)
     new_refresh = create_refresh_token(token_data)
 
+    logger.info("Token refreshed for user_id=%s", payload["user_id"])
     return RefreshTokenResponse(
         success=True,
         message="Token refreshed successfully",

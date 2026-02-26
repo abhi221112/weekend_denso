@@ -23,6 +23,9 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 # ── Configuration ────────────────────────────────────────────────
 SECRET_KEY = "d-trace-supplier-end-user-api-secret-key-2026"
@@ -68,11 +71,13 @@ def verify_token(token: str, expected_type: str = "access") -> dict:
             )
         return payload
     except jwt.ExpiredSignatureError:
+        logger.warning("JWT: Token expired")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",
         )
     except jwt.InvalidTokenError:
+        logger.warning("JWT: Invalid token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
@@ -94,6 +99,7 @@ def get_current_user(
             user_id = user["user_id"]
     """
     if credentials is None:
+        logger.warning("JWT: Missing authorization header")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing authorization header – provide Bearer token",

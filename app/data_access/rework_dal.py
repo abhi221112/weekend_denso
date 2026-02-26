@@ -5,6 +5,9 @@ All calls use SP  PRC_Print_Rework_Kanban  with different @TYPE values.
 """
 
 from app.utils.database import get_db_connection
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _row_to_dict(cursor, row):
@@ -58,6 +61,7 @@ def validate_tag(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: validate_tag for barcode=%s", barcode)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -89,6 +93,7 @@ def get_print_details(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_print_details for part=%s, lot=%s", supplier_part_no, lot_no_1)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -120,6 +125,7 @@ def get_last_print_details(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_last_print_details for part=%s", supplier_part_no)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -171,6 +177,7 @@ def rework_print(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: rework_print for barcode=%s, part=%s", barcode, supplier_part_no)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -214,6 +221,7 @@ def rework_print(
             printed_by,
             gross_weight,
         )
+       
         return _fetch_sp_result(cursor)
     finally:
         conn.close()
@@ -232,6 +240,7 @@ def get_reprint_parameter(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_reprint_parameter for part=%s", supplier_part_no)
         cursor.execute(
             """
             SET NOCOUNT ON;

@@ -17,3 +17,5 @@ venv/
 .env
 __init__.py
 _debug.py
+logs/
+

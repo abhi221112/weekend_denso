@@ -1,6 +1,9 @@
 import pyodbc
 import os
 from dotenv import load_dotenv
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 load_dotenv()
 
@@ -35,4 +38,9 @@ else:
 
 def get_db_connection():
     """Get a new database connection."""
-    return pyodbc.connect(CONNECTION_STRING)
+    try:
+        conn = pyodbc.connect(CONNECTION_STRING)
+        return conn
+    except pyodbc.Error as e:
+        logger.error("Database connection failed: %s", e)
+        raise

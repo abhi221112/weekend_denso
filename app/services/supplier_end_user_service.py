@@ -4,12 +4,15 @@ Maps raw SP results → typed response models.
 """
 
 from app.data_access import register_dal
+from app.utils.logger import get_logger
 from app.models.supplier_end_user import (
     SupplierEndUserCreate,
     SupplierEndUserUpdate,
     SupplierEndUserData,
     ChangePasswordRequest,
 )
+
+logger = get_logger(__name__)
 
 
 class SupplierEndUserService:
@@ -24,6 +27,7 @@ class SupplierEndUserService:
         Calls SP @Type = 'INSERT'.
         """
         try:
+            logger.info("Service: create_user for user_id=%s", user_data.user_id)
             result = register_dal.register_user(
                 user_id=user_data.user_id,
                 user_name=user_data.user_name,
@@ -68,6 +72,7 @@ class SupplierEndUserService:
                 }
 
         except Exception as e:
+            logger.error("Service: create_user failed: %s", e, exc_info=True)
             return {
                 "success": False,
                 "message": f"Registration failed: {str(e)}",
@@ -82,6 +87,7 @@ class SupplierEndUserService:
     ) -> dict:
         """Update an existing user. Calls SP @Type = 'UPDATE'."""
         try:
+            logger.info("Service: update_user for user_id=%s", user_id)
             result = register_dal.update_user(
                 user_id=user_id,
                 user_name=user_data.user_name or "",
@@ -102,6 +108,7 @@ class SupplierEndUserService:
                 return {"success": False, "message": result.get("RESULT", "Update failed")}
 
         except Exception as e:
+            logger.error("Service: update_user failed: %s", e, exc_info=True)
             return {"success": False, "message": f"Update failed: {str(e)}"}
 
     # ─────────────────────────────────────────────────────────────
@@ -110,6 +117,7 @@ class SupplierEndUserService:
     def delete_user(self, user_id: str, supplier_code: str) -> dict:
         """Delete a user. Calls SP @Type = 'DELETE'."""
         try:
+            logger.info("Service: delete_user for user_id=%s", user_id)
             result = register_dal.delete_user(user_id)
 
             if result is None:
@@ -121,6 +129,7 @@ class SupplierEndUserService:
                 return {"success": False, "message": result.get("RESULT", "Delete failed")}
 
         except Exception as e:
+            logger.error("Service: delete_user failed: %s", e, exc_info=True)
             return {"success": False, "message": f"Delete failed: {str(e)}"}
 
     # ─────────────────────────────────────────────────────────────
@@ -129,6 +138,7 @@ class SupplierEndUserService:
     def get_all_users(self, supplier_code: str, created_by: str) -> dict:
         """Get all users. Calls SP @Type = 'SELECT'."""
         try:
+            logger.info("Service: get_all_users (created_by=%s)", created_by)
             rows = register_dal.get_all_users(created_by)
 
             users = []
@@ -152,6 +162,7 @@ class SupplierEndUserService:
             }
 
         except Exception as e:
+            logger.error("Service: get_all_users failed: %s", e, exc_info=True)
             return {
                 "success": False,
                 "message": f"Failed to fetch users: {str(e)}",
@@ -183,6 +194,7 @@ class SupplierEndUserService:
             return {"success": False, "message": "User not found"}
 
         except Exception as e:
+            logger.error("Service: get_user failed: %s", e, exc_info=True)
             return {"success": False, "message": f"Failed: {str(e)}"}
 
     # ─────────────────────────────────────────────────────────────
@@ -191,6 +203,7 @@ class SupplierEndUserService:
     def get_groups(self) -> dict:
         """Get available user groups. Calls SP @Type = 'SELECT_GROUP'."""
         try:
+            logger.info("Service: get_groups")
             rows = register_dal.get_user_groups()
             groups = [
                 {"group_id": r.get("GroupID"), "group_name": r.get("GroupName", "")}
@@ -202,6 +215,7 @@ class SupplierEndUserService:
                 "data": groups,
             }
         except Exception as e:
+            logger.error("Service: get_groups failed: %s", e, exc_info=True)
             return {"success": False, "message": f"Failed: {str(e)}", "data": []}
 
     # ─────────────────────────────────────────────────────────────
@@ -210,6 +224,7 @@ class SupplierEndUserService:
     def get_plants(self, created_by: str) -> dict:
         """Get available plants. Calls SP @Type = 'Get_Plant'."""
         try:
+            logger.info("Service: get_plants (created_by=%s)", created_by)
             rows = register_dal.get_plants(created_by)
             plants = [
                 {"plant_code": r.get("PlantCode", ""), "plant_name": r.get("PlantName", "")}
@@ -221,6 +236,7 @@ class SupplierEndUserService:
                 "data": plants,
             }
         except Exception as e:
+            logger.error("Service: get_plants failed: %s", e, exc_info=True)
             return {"success": False, "message": f"Failed: {str(e)}", "data": []}
 
     # ─────────────────────────────────────────────────────────────
@@ -229,6 +245,7 @@ class SupplierEndUserService:
     def get_packing_stations(self, plant_code: str, supplier_code: str) -> dict:
         """Get packing stations for a plant. Calls SP @Type = 'Get_Packing_Station'."""
         try:
+            logger.info("Service: get_packing_stations for plant=%s", plant_code)
             rows = register_dal.get_packing_stations(plant_code, supplier_code)
             stations = [
                 {"station_no": r.get("StationNo", ""), "station_name": r.get("StationName", "")}
@@ -240,6 +257,7 @@ class SupplierEndUserService:
                 "data": stations,
             }
         except Exception as e:
+            logger.error("Service: get_packing_stations failed: %s", e, exc_info=True)
             return {"success": False, "message": f"Failed: {str(e)}", "data": []}
 
     # ─────────────────────────────────────────────────────────────
@@ -252,11 +270,13 @@ class SupplierEndUserService:
         """
         try:
             if data.old_password == data.new_password:
+                logger.warning("Service: change_password same old/new for user=%s", data.user_id)
                 return {
                     "success": False,
                     "message": "New password cannot be the same as the old password",
                 }
 
+            logger.info("Service: change_password for user_id=%s", data.user_id)
             result = register_dal.change_password(
                 user_id=data.user_id,
                 old_password=data.old_password,
@@ -274,4 +294,5 @@ class SupplierEndUserService:
                 return {"success": False, "message": db_result}
 
         except Exception as e:
+            logger.error("Service: change_password failed: %s", e, exc_info=True)
             return {"success": False, "message": f"Password change failed: {str(e)}"}

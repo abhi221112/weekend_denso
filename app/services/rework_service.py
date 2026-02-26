@@ -9,6 +9,7 @@ The SP returns:
 """
 
 from app.data_access import rework_dal
+from app.utils.logger import get_logger
 from app.schemas.rework_schema import (
     ReworkValidateTagResponse,
     ReworkValidateTagData,
@@ -21,6 +22,8 @@ from app.schemas.rework_schema import (
     ReworkReprintParamResponse,
     ReworkReprintParamData,
 )
+
+logger = get_logger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -72,6 +75,7 @@ def validate_tag(
     supplier_code: str | None = None,
 ) -> ReworkValidateTagResponse:
     """Validate a barcode for rework and return tag details."""
+    logger.info("Service: validate_tag for barcode=%s", barcode)
     row = rework_dal.validate_tag(
         barcode=barcode,
         supplier_code=supplier_code,
@@ -149,6 +153,7 @@ def get_print_details(
     supplier_code: str | None = None,
 ) -> ReworkGetPrintDetailsResponse:
     """Return last 3 rework print details for a part + lot."""
+    logger.info("Service: get_print_details for part=%s, lot=%s", supplier_part_no, lot_no_1)
     rows = rework_dal.get_print_details(
         supplier_part_no=supplier_part_no,
         lot_no_1=lot_no_1,
@@ -213,6 +218,7 @@ def get_last_print_details(
     supplier_part_no: str,
 ) -> ReworkGetLastPrintResponse:
     """Return last serial no & tag counts."""
+    logger.info("Service: get_last_print_details for part=%s", supplier_part_no)
     row = rework_dal.get_last_print_details(supplier_part_no)
 
     if row is None:
@@ -270,6 +276,7 @@ def rework_print(
     gross_weight: str | None,
 ) -> ReworkPrintResponse:
     """Execute rework KANBAN_PRINT SP and return parsed response."""
+    logger.info("Service: rework_print for barcode=%s, part=%s", barcode, supplier_part_no)
     row = rework_dal.rework_print(
         barcode=barcode,
         company_code=company_code,
@@ -302,6 +309,7 @@ def get_reprint_parameter(
     supplier_part_no: str,
 ) -> ReworkReprintParamResponse:
     """Return lot structure parameters for reprint."""
+    logger.info("Service: get_reprint_parameter for part=%s", supplier_part_no)
     row = rework_dal.get_reprint_parameter(supplier_part_no)
 
     if row is None:

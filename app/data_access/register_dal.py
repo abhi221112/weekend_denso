@@ -5,6 +5,9 @@ for user/supervisor registration (INSERT, UPDATE, DELETE, SELECT).
 
 from app.utils.database import get_db_connection
 from app.utils.password_utils import hash_password
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _row_to_dict(cursor, row):
@@ -64,6 +67,7 @@ def register_user(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: register_user for user_id=%s", user_id)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -139,6 +143,7 @@ def update_user(
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: update_user for user_id=%s", user_id)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -195,6 +200,7 @@ def delete_user(user_id: str) -> dict | None:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: delete_user for user_id=%s", user_id)
         cursor.execute(
             """
             SET NOCOUNT ON;
@@ -222,6 +228,7 @@ def get_all_users(created_by: str) -> list[dict]:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_all_users (created_by=%s)", created_by)
         cursor.execute(
             """
             EXEC [dbo].[PRC_UserSupplier_EndUser]
@@ -247,6 +254,7 @@ def get_user_groups() -> list[dict]:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_user_groups")
         cursor.execute(
             """
             EXEC [dbo].[PRC_UserSupplier_EndUser]
@@ -270,6 +278,7 @@ def get_plants(created_by: str) -> list[dict]:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_plants (created_by=%s)", created_by)
         cursor.execute(
             """
             EXEC [dbo].[PRC_UserSupplier_EndUser]
@@ -295,6 +304,7 @@ def get_packing_stations(plant_code: str, supplier_code: str) -> list[dict]:
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: get_packing_stations for plant=%s", plant_code)
         cursor.execute(
             """
             EXEC [dbo].[PRC_UserSupplier_EndUser]
@@ -323,6 +333,7 @@ def change_password(user_id: str, old_password: str, new_password: str) -> dict 
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        logger.info("DAL: change_password for user_id=%s", user_id)
         cursor.execute(
             """
             SET NOCOUNT ON;
