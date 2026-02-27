@@ -187,3 +187,24 @@ class ChangeLotNoResponse(BaseModel):
     barcode: Optional[str] = None
     old_lot_no: Optional[str] = None
     new_lot_no: Optional[str] = None
+
+
+# ── Get Last Print Details Request / Response ─────────────────────
+
+class GetLastPrintDetailsRequest(BaseModel):
+    """Request body for GET_LAST_PRINT_DETAILS – summary of last print run."""
+    supplier_code: str
+
+
+class LastPrintDetailsData(BaseModel):
+    """Data returned by GET_LAST_PRINT_DETAILS."""
+    running_sn_no: Optional[str] = None
+    count_no_of_tags: Optional[int] = None
+    total_no_of_tags: Optional[int] = None
+
+
+class GetLastPrintDetailsResponse(BaseModel):
+    """Response for GET_LAST_PRINT_DETAILS."""
+    success: bool
+    message: str
+    data: Optional[LastPrintDetailsData] = None

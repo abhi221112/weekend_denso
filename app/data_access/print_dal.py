@@ -316,6 +316,34 @@ def change_lot_no(
 # ─────────────────────────────────────────────────────────────────
 # 5.  SCAN_BARCODE  –  Look up tag details by scanned barcode
 # ─────────────────────────────────────────────────────────────────
+def get_last_print_details(supplier_code: str) -> dict | None:
+    """
+    Calls PRC_PrintKanban @Type = 'GET_LAST_PRINT_DETAILS'.
+
+    Returns a single row with:
+      - RunningSNNo   : max running serial number for the supplier
+      - CountNoOfTage : count of distinct BinBarcodes (active, undispatched)
+      - TotalNoOfTage : CountNoOfTage * BinQty
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        logger.info("DAL: get_last_print_details for supplier_code=%s", supplier_code)
+        cursor.execute(
+            """
+            SET NOCOUNT ON;
+            EXEC [dbo].[PRC_PrintKanban]
+                @TYPE         = 'GET_LAST_PRINT_DETAILS',
+                @SupplierCode = ?
+            """,
+            supplier_code,
+        )
+        result = _fetch_sp_result(cursor)
+        return result
+    finally:
+        conn.close()
+
+
 def scan_barcode(
     barcode: str,
 ) -> dict | None:

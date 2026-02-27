@@ -287,6 +287,42 @@ def change_lot_no(
 # ─────────────────────────────────────────────────────────────────
 # 5.  Scan Barcode – auto-fill form from scanned barcode
 # ─────────────────────────────────────────────────────────────────
+def get_last_print_details(supplier_code: str):
+    """
+    Retrieve the last print summary for a supplier:
+    running serial no, count of tags, and total tags.
+    """
+    from app.schemas.print_schema import GetLastPrintDetailsResponse, LastPrintDetailsData
+
+    logger.info("Service: get_last_print_details for supplier_code=%s", supplier_code)
+    row = print_dal.get_last_print_details(supplier_code=supplier_code)
+
+    if row is None:
+        return GetLastPrintDetailsResponse(
+            success=False,
+            message="No print details found for the given supplier code",
+            data=None,
+        )
+
+    def _int(val):
+        try:
+            return int(val) if val is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    data = LastPrintDetailsData(
+        running_sn_no=str(row.get("RunningSNNo")) if row.get("RunningSNNo") is not None else None,
+        count_no_of_tags=_int(row.get("CountNoOfTage")),
+        total_no_of_tags=_int(row.get("TotalNoOfTage")),
+    )
+
+    return GetLastPrintDetailsResponse(
+        success=True,
+        message="Last print details retrieved successfully",
+        data=data,
+    )
+
+
 def scan_barcode(barcode: str):
     """
     Look up a scanned barcode and return all part details

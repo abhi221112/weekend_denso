@@ -18,6 +18,8 @@ from app.schemas.print_schema import (
     ScanBarcodeResponse,
     ChangeLotNoRequest,
     ChangeLotNoResponse,
+    GetLastPrintDetailsRequest,
+    GetLastPrintDetailsResponse,
 )
 from app.services import print_service
 from app.utils.jwt_handler import get_current_user
@@ -167,7 +169,27 @@ def change_lot_no(body: ChangeLotNoRequest, user: dict = Depends(get_current_use
     return result
 
 
-# ── 5. Scan Barcode  ───────────────────────────────────────────────
+# ── 5. Last Print Details  ──────────────────────────────────────────
+@router.post("/last-print-details", response_model=GetLastPrintDetailsResponse)
+def last_print_details(body: GetLastPrintDetailsRequest, user: dict = Depends(get_current_user)):
+    """
+    **Get the last print summary for a supplier.**
+
+    Returns the latest running serial number, count of distinct bin barcodes
+    (active, undispatched), and total number of tags.
+
+    SP call: `PRC_PrintKanban @TYPE = 'GET_LAST_PRINT_DETAILS'`
+    """
+    logger.info("Last print details request: supplier_code=%s", body.supplier_code)
+    result = print_service.get_last_print_details(supplier_code=body.supplier_code)
+    if not result.success:
+        logger.warning("Last print details not found: %s", result.message)
+        raise HTTPException(status_code=404, detail=result.message)
+    logger.info("Last print details retrieved for supplier_code=%s", body.supplier_code)
+    return result
+
+
+# ── 6. Scan Barcode  ───────────────────────────────────────────────
 @router.post("/scan", response_model=ScanBarcodeResponse)
 def scan_barcode(body: ScanBarcodeRequest, user: dict = Depends(get_current_user)):
     """Scan a barcode and return all tag details to auto-fill the form."""
