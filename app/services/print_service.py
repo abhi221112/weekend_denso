@@ -323,6 +323,413 @@ def get_last_print_details(supplier_code: str):
     )
 
 
+# ─────────────────────────────────────────────────────────────────
+# 6.  Get Print Details (GET_PRINT_DETAILS) – top 3 recent prints
+# ─────────────────────────────────────────────────────────────────
+def get_print_details(
+    supplier_code: str,
+    printed_by: str,
+    station_no: str,
+    plant_code: str,
+):
+    """
+    Retrieve the top 3 recent prints for a given supplier/user/station/plant.
+    """
+    from app.schemas.print_schema import GetPrintDetailsResponse, PrintDetailItem
+
+    logger.info(
+        "Service: get_print_details supplier=%s, printer=%s",
+        supplier_code, printed_by,
+    )
+    rows = print_dal.get_print_details(
+        supplier_code=supplier_code,
+        printed_by=printed_by,
+        station_no=station_no,
+        plant_code=plant_code,
+    )
+
+    if not rows:
+        return GetPrintDetailsResponse(
+            success=False,
+            message="No print details found for the given parameters",
+            data=None,
+        )
+
+    def _safe_float(val):
+        try:
+            return float(val) if val is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    def _safe_int(val):
+        try:
+            return int(val) if val is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    items = []
+    for r in rows:
+        items.append(PrintDetailItem(
+            plant_code=r.get("PlantCode"),
+            station_no=r.get("StationNo"),
+            shift=r.get("Shift"),
+            lot_no_1=r.get("LotNo1"),
+            lot_no_2=r.get("LotNo2"),
+            running_sn_no=r.get("RunningSNNo"),
+            printed_by=r.get("PrintedBy"),
+            printed_on=str(r.get("PrintedOn")) if r.get("PrintedOn") else None,
+            print_date=r.get("PrintDate"),
+            traceability=r.get("Traceability"),
+            tag_type=r.get("TagTypeA"),
+            supplier_name=r.get("VNAME"),
+            barcode=r.get("Barcode"),
+            company_name=r.get("CompanyName"),
+            supplier_part_no=r.get("SupplierPartNo"),
+            part_no=r.get("PartNo"),
+            weight=_safe_float(r.get("Weight")),
+            pack_size=_safe_int(r.get("PackSize")),
+            weighing_scale=r.get("WeighingScale"),
+            gross_weight=_safe_float(r.get("Grossweight")),
+        ))
+
+    return GetPrintDetailsResponse(
+        success=True,
+        message="Print details retrieved successfully",
+        data=items,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────
+# 7.  Get All Print Details (GET_ALL_PRINT_DETAILS) – all undispatched
+# ─────────────────────────────────────────────────────────────────
+def get_all_print_details(
+    printed_by: str,
+    station_no: str,
+    plant_code: str,
+):
+    """
+    Retrieve all undispatched print rows for a station/plant.
+    """
+    from app.schemas.print_schema import GetAllPrintDetailsResponse, AllPrintDetailItem
+
+    logger.info(
+        "Service: get_all_print_details printer=%s, station=%s, plant=%s",
+        printed_by, station_no, plant_code,
+    )
+    rows = print_dal.get_all_print_details(
+        printed_by=printed_by,
+        station_no=station_no,
+        plant_code=plant_code,
+    )
+
+    if not rows:
+        return GetAllPrintDetailsResponse(
+            success=False,
+            message="No print details found for the given parameters",
+            data=None,
+        )
+
+    def _safe_int(val):
+        try:
+            return int(val) if val is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    def _safe_float(val):
+        try:
+            return float(val) if val is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    items = []
+    for r in rows:
+        items.append(AllPrintDetailItem(
+            plant_code=r.get("PlantCode"),
+            station_no=r.get("StationNo"),
+            shift=r.get("Shift"),
+            lot_no_1=r.get("LotNo1"),
+            lot_no_2=r.get("LotNo2"),
+            printed_by=r.get("PrintedBy"),
+            print_date=r.get("PrintDate"),
+            traceability=r.get("Traceability"),
+            tag_type=r.get("TagTypeA"),
+            supplier_name=r.get("VNAME"),
+            barcode=r.get("Barcode"),
+            company_name=r.get("CompanyName"),
+            supplier_part_no=r.get("SupplierPartNo"),
+            part_no=r.get("PartNo"),
+            weight=_safe_int(r.get("Weight")),
+            pack_size=_safe_int(r.get("PackSize")),
+            part_name=r.get("PartName"),
+            running_sn_no=r.get("RunningSNNo"),
+            supplier_code=r.get("SupplierCode"),
+            gross_weight=_safe_float(r.get("Grossweight")),
+            weighing_scale=r.get("WeighingScale"),
+            lot_type=r.get("Lot_Type"),
+            bin_barcode=r.get("BinBarcode"),
+            bin_qty=_safe_int(r.get("BinQty")),
+        ))
+
+    return GetAllPrintDetailsResponse(
+        success=True,
+        message="All print details retrieved successfully",
+        data=items,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────
+# 8.  Print PRN (PRINT_PRN) – log print/reprint event
+# ─────────────────────────────────────────────────────────────────
+def print_prn(prn: str, ip: str, port: str, supplier_code: str):
+    """Log a print/reprint event by inserting into TM_Print_Prn."""
+    from app.schemas.print_schema import PrintPrnResponse
+
+    logger.info("Service: print_prn prn=%s, ip=%s, supplier=%s", prn, ip, supplier_code)
+    success = print_dal.print_prn(
+        prn=prn,
+        ip=ip,
+        port=port,
+        supplier_code=supplier_code,
+    )
+
+    if success:
+        return PrintPrnResponse(success=True, message="PRN logged successfully")
+    return PrintPrnResponse(success=False, message="Failed to log PRN")
+
+
+# ─────────────────────────────────────────────────────────────────
+# 9.  Rework Re-Print (KANBAN_REWORK_RE_PRINT) – supervisor auth first
+# ─────────────────────────────────────────────────────────────────
+def rework_reprint_tag(
+    *,
+    supervisor_user_id: str,
+    supervisor_password: str,
+    company_code: str | None,
+    plant_code: str,
+    station_no: str,
+    supplier_code: str,
+    customer_code: str | None,
+    supplier_part_no: str,
+    part_no: str,
+    lot_no_1: str,
+    lot_no_2: str | None,
+    tag_type: str | None,
+    weight: float | None,
+    qty: int | None,
+    is_mixed_lot: bool,
+    running_sn_no: str | None,
+    rm_material: str | None,
+    printed_by: str,
+    old_barcode: str,
+    gross_weight: str | None,
+) -> KanbanPrintResponse:
+    """
+    1. Validate supervisor credentials.
+    2. If valid, execute KANBAN_REWORK_RE_PRINT SP.
+    """
+    # ── Step 1: supervisor auth ──────────────────────────────────
+    sup_row = traceability_dal.validate_device_supervisor(
+        supervisor_user_id, supervisor_password
+    )
+    if sup_row is None or not sup_row.get("SupplierPlantCode"):
+        logger.warning("Service: rework_reprint_tag supervisor auth failed for %s", supervisor_user_id)
+        return KanbanPrintResponse(
+            success=False,
+            message="Supervisor authentication failed or insufficient rights",
+            data=None,
+        )
+
+    # ── Step 2: call the SP ──────────────────────────────────────
+    logger.info("Service: rework_reprint_tag executing SP for old_barcode=%s", old_barcode)
+    row = print_dal.kanban_rework_reprint(
+        company_code=company_code,
+        plant_code=plant_code,
+        station_no=station_no,
+        supplier_code=supplier_code,
+        customer_code=customer_code,
+        supplier_part_no=supplier_part_no,
+        part_no=part_no,
+        lot_no_1=lot_no_1,
+        lot_no_2=lot_no_2,
+        tag_type=tag_type,
+        weight=weight,
+        qty=qty,
+        is_mixed_lot=is_mixed_lot,
+        running_sn_no=running_sn_no,
+        rm_material=rm_material,
+        printed_by=printed_by,
+        old_barcode=old_barcode,
+        gross_weight=gross_weight,
+    )
+
+    success, msg, data = _parse_print_result(row)
+    return KanbanPrintResponse(success=success, message=msg, data=data)
+
+
+# ─────────────────────────────────────────────────────────────────
+# 10. Get All Rework Print Details (GET_ALL_REWORK_PRINT_DETAILS)
+# ─────────────────────────────────────────────────────────────────
+def get_all_rework_print_details(
+    printed_by: str,
+    station_no: str,
+    plant_code: str,
+):
+    """
+    Retrieve all undispatched rework print rows for a station/plant.
+    """
+    from app.schemas.print_schema import GetAllReworkPrintDetailsResponse, ReworkPrintDetailItem
+
+    logger.info(
+        "Service: get_all_rework_print_details printer=%s, station=%s, plant=%s",
+        printed_by, station_no, plant_code,
+    )
+    rows = print_dal.get_all_rework_print_details(
+        printed_by=printed_by,
+        station_no=station_no,
+        plant_code=plant_code,
+    )
+
+    if not rows:
+        return GetAllReworkPrintDetailsResponse(
+            success=False,
+            message="No rework print details found for the given parameters",
+            data=None,
+        )
+
+    def _safe_int(val):
+        try:
+            return int(val) if val is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    def _safe_float(val):
+        try:
+            return float(val) if val is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    items = []
+    for r in rows:
+        items.append(ReworkPrintDetailItem(
+            plant_code=r.get("PlantCode"),
+            station_no=r.get("StationNo"),
+            shift=r.get("Shift"),
+            lot_no_1=r.get("LotNo1"),
+            lot_no_2=r.get("LotNo2"),
+            printed_by=r.get("PrintedBy"),
+            print_date=r.get("PrintDate"),
+            traceability=r.get("Traceability"),
+            tag_type=r.get("TagTypeA"),
+            supplier_name=r.get("VNAME"),
+            barcode=r.get("Barcode"),
+            company_name=r.get("CompanyName"),
+            supplier_part_no=r.get("SupplierPartNo"),
+            part_no=r.get("PartNo"),
+            weight=_safe_int(r.get("Weight")),
+            pack_size=_safe_int(r.get("PackSize")),
+            part_name=r.get("PartName"),
+            running_sn_no=r.get("RunningSNNo"),
+            supplier_code=r.get("SupplierCode"),
+            gross_weight=_safe_float(r.get("Grossweight")),
+            weighing_scale=r.get("WeighingScale"),
+        ))
+
+    return GetAllReworkPrintDetailsResponse(
+        success=True,
+        message="All rework print details retrieved successfully",
+        data=items,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────
+# 11. Validate User Admin (VALIDATEUSER_ADMIN)
+# ─────────────────────────────────────────────────────────────────
+def validate_user_admin(user_id: str, password: str):
+    """
+    Validate a supervisor/admin user for unlock/reprint.
+    Calls PRC_UserSupplier_EndUser @Type = 'VALIDATEUSER_ADMIN'.
+    """
+    from app.schemas.print_schema import ValidateUserAdminResponse, ValidateUserAdminData
+    from app.utils.password_utils import hash_password
+
+    logger.info("Service: validate_user_admin for user_id=%s", user_id)
+    row = print_dal.validate_user_admin(user_id=user_id, password=hash_password(password))
+
+    if row is None:
+        return ValidateUserAdminResponse(
+            success=False,
+            message="Invalid credentials or user not found",
+            data=None,
+        )
+
+    result_val = str(row.get("RESULT", "N"))
+    if result_val != "Y":
+        msg = row.get("MSG", "Supervisor authentication failed or insufficient rights")
+        return ValidateUserAdminResponse(
+            success=False,
+            message=str(msg),
+            data=None,
+        )
+
+    def _safe_int(val):
+        try:
+            return int(val) if val is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    data = ValidateUserAdminData(
+        user_id=row.get("UserID"),
+        user_name=row.get("USERNAME"),
+        email_id=row.get("EmailId"),
+        group_id=_safe_int(row.get("GroupID")),
+        group_name=row.get("GroupName"),
+        is_supplier=row.get("IsSupplier"),
+        supplier_code=row.get("SupplierCode"),
+        denso_plant=row.get("DensoPlant"),
+        supplier_plant_code=row.get("SupplierPlantCode"),
+        packing_station=row.get("PackingStation"),
+    )
+
+    return ValidateUserAdminResponse(
+        success=True,
+        message="Supervisor validated successfully",
+        data=data,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────
+# 12. Get Shift (GET_SHIFT) – current shift for a supplier
+# ─────────────────────────────────────────────────────────────────
+def get_shift(supplier_code: str):
+    """
+    Retrieve the current shift information for a supplier.
+    Returns shift name, shift start time, and shift end time.
+    """
+    from app.schemas.print_schema import GetShiftResponse, ShiftData
+
+    logger.info("Service: get_shift for supplier_code=%s", supplier_code)
+    row = print_dal.get_shift(supplier_code=supplier_code)
+
+    if row is None:
+        return GetShiftResponse(
+            success=False,
+            message="No shift information found for the given supplier code",
+            data=None,
+        )
+
+    data = ShiftData(
+        shift=row.get("Shift"),
+        shift_from=row.get("ShiftFrom"),
+        shift_to=row.get("ShiftTo"),
+    )
+
+    return GetShiftResponse(
+        success=True,
+        message="Shift information retrieved successfully",
+        data=data,
+    )
+
+
 def scan_barcode(barcode: str):
     """
     Look up a scanned barcode and return all part details

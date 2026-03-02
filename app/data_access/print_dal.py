@@ -344,6 +344,142 @@ def get_last_print_details(supplier_code: str) -> dict | None:
         conn.close()
 
 
+# ─────────────────────────────────────────────────────────────────
+# 6.  GET_PRINT_DETAILS  –  Top 3 recent prints for a supplier
+# ─────────────────────────────────────────────────────────────────
+def get_print_details(
+    supplier_code: str,
+    printed_by: str,
+    station_no: str,
+    plant_code: str,
+) -> list[dict]:
+    """
+    Calls PRC_PrintKanban @Type = 'GET_PRINT_DETAILS'.
+
+    Returns the top 3 recent prints for the given supplier, printer,
+    station, and plant.  The SP has two branches:
+      - Other-customer supplier (TM_Supplier_Customer)
+      - Regular supplier (TM_SUPPLIER_MASTER + TM_Company)
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        logger.info(
+            "DAL: get_print_details supplier=%s, printer=%s, station=%s, plant=%s",
+            supplier_code, printed_by, station_no, plant_code,
+        )
+        cursor.execute(
+            """
+            SET NOCOUNT ON;
+            EXEC [dbo].[PRC_PrintKanban]
+                @TYPE         = 'GET_PRINT_DETAILS',
+                @SupplierCode = ?,
+                @PrintedBy    = ?,
+                @StationNo    = ?,
+                @PlantCode    = ?
+            """,
+            supplier_code,
+            printed_by,
+            station_no,
+            plant_code,
+        )
+        rows = []
+        while True:
+            if cursor.description is not None:
+                columns = [col[0] for col in cursor.description]
+                for row in cursor.fetchall():
+                    rows.append(dict(zip(columns, row)))
+                if rows:
+                    return rows
+            if not cursor.nextset():
+                break
+        return rows
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────
+# 7.  GET_ALL_PRINT_DETAILS  –  All undispatched prints
+# ─────────────────────────────────────────────────────────────────
+def get_all_print_details(
+    printed_by: str,
+    station_no: str,
+    plant_code: str,
+) -> list[dict]:
+    """
+    Calls PRC_PrintKanban @Type = 'GET_ALL_PRINT_DETAILS'.
+
+    Returns all undispatched print rows for a station/plant,
+    merging data from both other-customer and regular supplier sources,
+    ordered by RunningSNNo desc.
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        logger.info(
+            "DAL: get_all_print_details printer=%s, station=%s, plant=%s",
+            printed_by, station_no, plant_code,
+        )
+        cursor.execute(
+            """
+            SET NOCOUNT ON;
+            EXEC [dbo].[PRC_PrintKanban]
+                @TYPE      = 'GET_ALL_PRINT_DETAILS',
+                @PrintedBy = ?,
+                @StationNo = ?,
+                @PlantCode = ?
+            """,
+            printed_by,
+            station_no,
+            plant_code,
+        )
+        rows = []
+        while True:
+            if cursor.description is not None:
+                columns = [col[0] for col in cursor.description]
+                for row in cursor.fetchall():
+                    rows.append(dict(zip(columns, row)))
+                if rows:
+                    return rows
+            if not cursor.nextset():
+                break
+        return rows
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────
+# 12. GET_SHIFT  –  Current shift information for a supplier
+# ─────────────────────────────────────────────────────────────────
+def get_shift(supplier_code: str) -> dict | None:
+    """
+    Calls PRC_PrintKanban @Type = 'GET_SHIFT'.
+
+    The SP determines the current shift based on the server time
+    using dbo.GetShiftTime(). If the supplier is an other-customer
+    (exists in TM_Supplier_Customer), it resolves the CustomerCode first.
+
+    Returns a single row with: Shift, ShiftFrom, ShiftTo.
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        logger.info("DAL: get_shift for supplier_code=%s", supplier_code)
+        cursor.execute(
+            """
+            SET NOCOUNT ON;
+            EXEC [dbo].[PRC_PrintKanban]
+                @TYPE         = 'GET_SHIFT',
+                @SupplierCode = ?
+            """,
+            supplier_code,
+        )
+        result = _fetch_sp_result(cursor)
+        return result
+    finally:
+        conn.close()
+
+
 def scan_barcode(
     barcode: str,
 ) -> dict | None:
@@ -426,5 +562,223 @@ def scan_barcode(
             if row is not None:
                 return _row_to_dict(cursor, row)
         return None
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────
+# 8.  PRINT_PRN  –  Log a print/reprint event
+# ─────────────────────────────────────────────────────────────────
+def print_prn(
+    prn: str,
+    ip: str,
+    port: str,
+    supplier_code: str,
+) -> bool:
+    """
+    Calls PRC_PrintKanban @Type = 'PRINT_PRN'.
+
+    Inserts into TM_Print_Prn (PRN, IP, Port, SupplierCode).
+    SP maps: PRN=@CustomerCode, IP=@PlantCode, Port=@StationNo.
+    Returns True on success.
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        logger.info(
+            "DAL: print_prn prn=%s, ip=%s, port=%s, supplier=%s",
+            prn, ip, port, supplier_code,
+        )
+        cursor.execute(
+            """
+            SET NOCOUNT ON;
+            EXEC [dbo].[PRC_PrintKanban]
+                @TYPE         = 'PRINT_PRN',
+                @CustomerCode = ?,
+                @PlantCode    = ?,
+                @StationNo    = ?,
+                @SupplierCode = ?
+            """,
+            prn,
+            ip,
+            port,
+            supplier_code,
+        )
+        # SP does: select 1
+        result = _fetch_sp_result(cursor)
+        conn.commit()
+        return result is not None
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────
+# 9.  KANBAN_REWORK_RE_PRINT  –  Rework reprint with new tag
+# ─────────────────────────────────────────────────────────────────
+def kanban_rework_reprint(
+    *,
+    company_code: str | None = None,
+    plant_code: str,
+    station_no: str,
+    supplier_code: str,
+    customer_code: str | None = None,
+    supplier_part_no: str,
+    part_no: str,
+    lot_no_1: str,
+    lot_no_2: str | None = "",
+    tag_type: str | None = None,
+    weight: float | None = None,
+    qty: int | None = None,
+    is_mixed_lot: bool = False,
+    running_sn_no: str | None = None,
+    rm_material: str | None = None,
+    printed_by: str,
+    old_barcode: str,
+    gross_weight: str | None = None,
+) -> dict | None:
+    """
+    Calls PRC_PrintKanban @Type = 'KANBAN_REWORK_RE_PRINT'.
+
+    Similar to KANBAN_RE_PRINT but creates PrintType='Rework' and TagType='RWK'.
+    The SP:
+      - Copies old tag to TT_Kanban_Re_Print_History
+      - Deletes old barcode row
+      - Generates new serial / barcode
+      - INSERTs replacement row with PrintType='Rework'
+      - Returns tilde-delimited Result + Msg
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        logger.info("DAL: kanban_rework_reprint for old_barcode=%s, part=%s", old_barcode, supplier_part_no)
+        cursor.execute(
+            """
+            SET NOCOUNT ON;
+            EXEC [dbo].[PRC_PrintKanban]
+                @TYPE           = 'KANBAN_REWORK_RE_PRINT',
+                @CompanyCode    = ?,
+                @PlantCode      = ?,
+                @StationNo      = ?,
+                @SupplierCode   = ?,
+                @CustomerCode   = ?,
+                @SupplierPartNo = ?,
+                @PartNo         = ?,
+                @LotNo1         = ?,
+                @LotNo2         = ?,
+                @TagType        = ?,
+                @Weight         = ?,
+                @Qty            = ?,
+                @IsMixedLot     = ?,
+                @RunningSNNo    = ?,
+                @RM_Material    = ?,
+                @PrintedBy      = ?,
+                @OldBarcode     = ?,
+                @Grossweight    = ?
+            """,
+            company_code,
+            plant_code,
+            station_no,
+            supplier_code,
+            customer_code,
+            supplier_part_no,
+            part_no,
+            lot_no_1,
+            lot_no_2 or "",
+            tag_type,
+            weight,
+            qty,
+            1 if is_mixed_lot else 0,
+            running_sn_no,
+            rm_material,
+            printed_by,
+            old_barcode,
+            gross_weight,
+        )
+        result = _fetch_sp_result(cursor)
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────
+# 10. GET_ALL_REWORK_PRINT_DETAILS  –  All undispatched rework prints
+# ─────────────────────────────────────────────────────────────────
+def get_all_rework_print_details(
+    printed_by: str,
+    station_no: str,
+    plant_code: str,
+) -> list[dict]:
+    """
+    Calls PRC_PrintKanban @Type = 'GET_ALL_REWORK_PRINT_DETAILS'.
+
+    Returns all undispatched rework print rows for a station/plant,
+    merging both other-customer and regular supplier data,
+    filtered by PrintType='Rework', ordered by RunningSNNo desc.
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        logger.info(
+            "DAL: get_all_rework_print_details printer=%s, station=%s, plant=%s",
+            printed_by, station_no, plant_code,
+        )
+        cursor.execute(
+            """
+            SET NOCOUNT ON;
+            EXEC [dbo].[PRC_PrintKanban]
+                @TYPE      = 'GET_ALL_REWORK_PRINT_DETAILS',
+                @PrintedBy = ?,
+                @StationNo = ?,
+                @PlantCode = ?
+            """,
+            printed_by,
+            station_no,
+            plant_code,
+        )
+        rows = []
+        while True:
+            if cursor.description is not None:
+                columns = [col[0] for col in cursor.description]
+                for row in cursor.fetchall():
+                    rows.append(dict(zip(columns, row)))
+                if rows:
+                    return rows
+            if not cursor.nextset():
+                break
+        return rows
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────
+# 11. VALIDATEUSER_ADMIN  –  Supervisor login for unlock/reprint
+# ─────────────────────────────────────────────────────────────────
+def validate_user_admin(user_id: str, password: str) -> dict | None:
+    """
+    Calls PRC_UserSupplier_EndUser @Type = 'VALIDATEUSER_ADMIN'.
+
+    Validates a supervisor/admin user for unlock/reprint operations.
+    The SP checks group rights (ScreenId='2002') and returns:
+      - On success: RESULT='Y' + user details
+      - On failure: RESULT='N' + MSG
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        logger.info("DAL: validate_user_admin for user_id=%s", user_id)
+        cursor.execute(
+            """
+            SET NOCOUNT ON;
+            EXEC [dbo].[PRC_UserSupplier_EndUser]
+                @Type     = 'VALIDATEUSER_ADMIN',
+                @UserID   = ?,
+                @Password = ?
+            """,
+            user_id,
+            password,
+        )
+        result = _fetch_sp_result(cursor)
+        return result
     finally:
         conn.close()
