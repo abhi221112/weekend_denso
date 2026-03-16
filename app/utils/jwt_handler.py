@@ -3,7 +3,7 @@ JWT Token Handler
 =================
 Generates and verifies access & refresh tokens using PyJWT.
 
-Access token  → short-lived (30 min)
+Access token  → long-lived  (7 days)
 Refresh token → long-lived  (7 days)
 
 Usage:
@@ -30,7 +30,7 @@ logger = get_logger(__name__)
 # ── Configuration ────────────────────────────────────────────────
 SECRET_KEY = "d-trace-supplier-end-user-api-secret-key-2026"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 10080
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 # Bearer token scheme for Swagger UI
@@ -40,7 +40,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 # ── Token Creation ───────────────────────────────────────────────
 
 def create_access_token(data: dict) -> str:
-    """Create a short-lived access token (30 min)."""
+    """Create an access token (7 days)."""
     payload = data.copy()
     payload["exp"] = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload["type"] = "access"

@@ -234,12 +234,32 @@ def reprint_tag(
 
 
 # ─────────────────────────────────────────────────────────────────
-# 3.  Get Image (GET_PRINT_IMAGE)
+# 3.  Get Image URL
 # ─────────────────────────────────────────────────────────────────
-def get_image(supplier_part: str) -> bytes | None:
-    """Return raw image bytes or None if not found."""
-    logger.info("Service: get_image for supplier_part=%s", supplier_part)
-    return print_dal.get_print_image(supplier_part)
+def get_image_url(supplier_part: str, request) -> str | None:
+    """
+    Return the static image URL for the supplier part.
+    First checks if a static file exists, then falls back to DB image
+    (saves it as a static file and returns the URL).
+    """
+    import os
+    logger.info("Service: get_image_url for supplier_part=%s", supplier_part)
+
+    filename = f"{supplier_part.lower().replace('-', '_')}.jpg"
+    static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static", "images")
+    filepath = os.path.join(static_dir, filename)
+
+    # If static file doesn't exist, try to fetch from DB and save it
+    if not os.path.exists(filepath):
+        image_bytes = print_dal.get_print_image(supplier_part)
+        if image_bytes is None:
+            return None
+        os.makedirs(static_dir, exist_ok=True)
+        with open(filepath, "wb") as f:
+            f.write(image_bytes)
+
+    base_url = str(request.base_url).rstrip("/")
+    return f"{base_url}/static/images/{filename}"
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -619,7 +639,7 @@ def get_all_rework_print_details(
             printed_by=r.get("PrintedBy"),
             print_date=r.get("PrintDate"),
             traceability=r.get("Traceability"),
-            tag_type=r.get("TagTypeA"),
+            tag_type="RWK",  # SP hardcodes 'NEW' but rework records must be 'RWK'
             supplier_name=r.get("VNAME"),
             barcode=r.get("Barcode"),
             company_name=r.get("CompanyName"),

@@ -7,7 +7,7 @@ Endpoints:
   GET  /api/printing/image/{supplier_part} → GET_PRINT_IMAGE (binary image)
 """
 
-from fastapi import APIRouter, HTTPException, Response, Depends
+from fastapi import APIRouter, HTTPException, Request, Response, Depends
 
 from app.schemas.print_schema import (
     KanbanPrintRequest,
@@ -133,29 +133,27 @@ def reprint_tag(body: KanbanRePrintRequest, user: dict = Depends(get_current_use
 # ── 3. Get Image  ──────────────────────────────────────────────────
 @router.get(
     "/image/{supplier_part}",
+    response_model=GetImageResponse,
     responses={
-        200: {"content": {"image/jpeg": {}}, "description": "Supplier part image"},
         404: {"model": GetImageResponse, "description": "No image found"},
     },
 )
-def get_image(supplier_part: str, user: dict = Depends(get_current_user)):
+def get_image(supplier_part: str, request: Request, user: dict = Depends(get_current_user)):
     """
-    **Retrieve the supplier-part image (binary).**
+    **Retrieve the supplier-part image URL.**
 
-    Returns the raw image stored in
-    `TM_DnhaPart_And_SupplierPart_Mapping.SupplierPartImage`.
-
-    SP call: `PRC_PrintKanban @TYPE = 'GET_PRINT_IMAGE'`
+    Returns a JSON response with the static image URL that the
+    frontend can use directly in an `<img>` tag.
     """
     logger.info("Fetching image for supplier_part=%s", supplier_part)
-    image_bytes = print_service.get_image(supplier_part)
-    if image_bytes is None:
+    image_url = print_service.get_image_url(supplier_part, request)
+    if image_url is None:
         logger.warning("No image found for supplier_part=%s", supplier_part)
         raise HTTPException(
             status_code=404,
             detail="No image found for the given supplier part",
         )
-    return Response(content=image_bytes, media_type="image/jpeg")
+    return GetImageResponse(success=True, message="Image loaded successfully", image_url=image_url)
 
 
 # ── 4. Change Lot Number  ──────────────────────────────────────────

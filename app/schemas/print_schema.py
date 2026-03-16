@@ -106,9 +106,10 @@ class GetImageRequest(BaseModel):
 
 
 class GetImageResponse(BaseModel):
-    """Only used for error responses; success returns raw bytes."""
+    """Response with image URL for frontend usage."""
     success: bool
     message: str
+    image_url: Optional[str] = None
 
 
 # ── Scan Barcode Request / Response ──────────────────────────────

@@ -7,8 +7,11 @@ Only the APIs required for the tag-print workflow:
   3. POST /api/traceability/supervisor-login        → VALIDATE_DEVICE_SUPERVISOR
 """
 
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.routes.traceability_route import router as traceability_router
 from app.routes.register import router as register_router
@@ -32,6 +35,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve static files (images, etc.)
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+os.makedirs(static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Register routes
 app.include_router(traceability_router)
