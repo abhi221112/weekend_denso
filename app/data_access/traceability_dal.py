@@ -123,6 +123,67 @@ def validate_user_pc(user_id: str, password: str) -> dict | None:
         if row:
             return _row_to_dict(cursor, row)
 
+        # ── Diagnostic: explain why login failed ──────────────────
+        diag = conn.cursor()
+
+        # Check UserMaster (ignore password & IsSupplier)
+        diag.execute(
+            "SELECT TOP 1 Password, IsSupplier FROM TM_Supplier_UserMaster WITH (NOLOCK) WHERE UserID = ?",
+            user_id,
+        )
+        um_row = diag.fetchone()
+        if um_row:
+            stored_pwd, is_supplier = um_row[0], um_row[1]
+            if stored_pwd != hashed_pwd:
+                logger.warning(
+                    "DAL: user_id=%s found in UserMaster but password hash mismatch "
+                    "(stored len=%s, computed len=%s, IsSupplier=%s)",
+                    user_id, len(stored_pwd or ""), len(hashed_pwd), is_supplier,
+                )
+            else:
+                logger.warning(
+                    "DAL: user_id=%s found in UserMaster, password OK, "
+                    "but IsSupplier='%s' or no supplier mapping",
+                    user_id, is_supplier,
+                )
+            return None
+
+        # Check End_User table (ignore password)
+        diag.execute(
+            "SELECT TOP 1 Password, GroupID FROM TM_Supplier_End_User WITH (NOLOCK) WHERE UserID = ?",
+            user_id,
+        )
+        eu_row = diag.fetchone()
+        if eu_row:
+            stored_pwd, group_id = eu_row[0], eu_row[1]
+            if stored_pwd != hashed_pwd:
+                logger.warning(
+                    "DAL: user_id=%s found in End_User but password hash mismatch "
+                    "(stored='%s', computed='%s')",
+                    user_id, stored_pwd, hashed_pwd,
+                )
+            else:
+                # Password matches but INNER JOIN TM_Supplier_GROUP failed
+                diag.execute(
+                    "SELECT 1 FROM TM_Supplier_GROUP WHERE GroupID = ?", group_id
+                )
+                if not diag.fetchone():
+                    logger.warning(
+                        "DAL: user_id=%s End_User GroupID=%s not found in TM_Supplier_GROUP",
+                        user_id, group_id,
+                    )
+                else:
+                    logger.warning(
+                        "DAL: user_id=%s End_User password OK and group OK "
+                        "– unexpected join failure",
+                        user_id,
+                    )
+        else:
+            logger.warning(
+                "DAL: user_id=%s not found in TM_Supplier_UserMaster or TM_Supplier_End_User",
+                user_id,
+            )
+
         return None
     finally:
         conn.close()

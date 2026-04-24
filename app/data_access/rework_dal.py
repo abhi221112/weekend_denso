@@ -222,7 +222,9 @@ def rework_print(
             gross_weight,
         )
        
-        return _fetch_sp_result(cursor)
+        result = _fetch_sp_result(cursor)
+        conn.commit()
+        return result
     finally:
         conn.close()
 

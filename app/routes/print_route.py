@@ -366,6 +366,40 @@ def get_all_rework_print_details(body: GetAllReworkPrintDetailsRequest, user: di
     return result
 
 
+# ── 11b. Get Latest Rework Print Detail (top 1)  ────────────────
+@router.post("/latest-rework-print-detail", response_model=GetAllReworkPrintDetailsResponse)
+def get_latest_rework_print_detail(body: GetAllReworkPrintDetailsRequest, user: dict = Depends(get_current_user)):
+    """
+    **Get the most recent undispatched rework print detail for a station/plant.**
+
+    Same as `/all-rework-print-details` but returns only the top 1 record.
+
+    SP call: `PRC_PrintKanban @TYPE = 'GET_ALL_REWORK_PRINT_DETAILS'`
+    """
+    logger.info(
+        "Latest rework print detail request: printer=%s, station=%s, plant=%s",
+        body.printed_by, body.station_no, body.plant_code,
+    )
+    result = print_service.get_all_rework_print_details(
+        printed_by=body.printed_by,
+        station_no=body.station_no,
+        plant_code=body.plant_code,
+    )
+    if not result.success:
+        logger.warning("Latest rework print detail not found: %s", result.message)
+        raise HTTPException(status_code=404, detail=result.message)
+    # Return only the top 1 record based on latest print time
+    if result.data:
+        from datetime import datetime
+        result.data = sorted(
+            result.data,
+            key=lambda r: datetime.strptime(r.print_date, "%d/%m/%Y %H:%M") if r.print_date else datetime.min,
+            reverse=True,
+        )[:1]
+    logger.info("Latest rework print detail retrieved for station=%s", body.station_no)
+    return result
+
+
 # ── 12. Validate User Admin  ───────────────────────────────────
 @router.post("/validate-admin", response_model=ValidateUserAdminResponse)
 def validate_user_admin(body: ValidateUserAdminRequest, user: dict = Depends(get_current_user)):
